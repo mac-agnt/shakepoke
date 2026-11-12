@@ -1,6 +1,7 @@
 import { Fragment } from "react";
 import { arr, cat, css, txt } from "../../runtime/template";
 import AgentFace from "../../components/AgentFace";
+import AgentPanel from "../../shaka/AgentPanel";
 
 type Props = { v: any };
 
@@ -227,6 +228,7 @@ export default function Agents({ v }: Props) {
             </div>
           </div>
         </div>
+        {(v.w ?? 1440) >= 1100 && <AgentPanel id={v.agentFocusId} />}
       </div>
     </>
   );

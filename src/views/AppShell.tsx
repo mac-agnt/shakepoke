@@ -18,8 +18,12 @@ import AgentStudio from "./overlays/AgentStudio";
 import NewRecordDialog from "./overlays/NewRecordDialog";
 import CommandPalette from "./overlays/CommandPalette";
 import BackgroundGallery from "./overlays/BackgroundGallery";
+import { ShakaPage, ShakaOverlays } from "../shaka/ShakaHost";
+import RecordsTables from "../shaka/pages/RecordsTables";
+import ShakaMark from "../shaka/ShakaMark";
 
 type Props = { v: any };
+void Work; void Activity; void Settings; void Dashboard;
 
 export default function AppShell({ v }: Props) {
   return (
@@ -31,15 +35,15 @@ export default function AppShell({ v }: Props) {
       <nav data-rail-nav="1" style={css(v.railOuter)}>
         <span style={css(v.railThumbStyle)} />
         <div style={css(cat(v.railRowStyle, "margin-bottom:22px"))}>
-          <button className={cx("ix0", "ix1")} onClick={v.toggleRail} title={v.railLabel} style={{"width":"36px","height":"36px","flex":"none","border":"0","borderRadius":"var(--cta-r,11px)","background":"var(--accent-fill,var(--accent))","color":"var(--on-accent)","boxShadow":"var(--accent-glow,none)","cursor":"pointer","display":"flex","alignItems":"center","justifyContent":"center","fontSize":"13px","fontWeight":"600","padding":"0","transition":"transform .2s var(--ease)"}}>
-            {"K"}
+          <button className={cx("ix0", "ix1")} onClick={v.toggleRail} title={v.railLabel} style={{"width":"36px","height":"36px","flex":"none","border":"0","borderRadius":"var(--cta-r,11px)","background":"#0854A0","color":"#ffffff","boxShadow":"0 0 18px rgba(70,200,240,.25)","cursor":"pointer","display":"flex","alignItems":"center","justifyContent":"center","fontSize":"13px","fontWeight":"600","padding":"0","overflow":"hidden","transition":"transform .2s var(--ease)"}}>
+            <ShakaMark />
           </button>
           <span style={css(v.brandStyle)}>
             <span style={{"display":"block","fontSize":"15px","fontWeight":"600","letterSpacing":"-.3px","color":"var(--ink)"}}>
-              {"Kilbride Group"}
+              {"Shaka Poké"}
             </span>
             <span style={{"display":"block","marginTop":"2px","fontSize":"9px","fontWeight":"500","letterSpacing":".16em","color":"var(--accent)"}}>
-              {"PULSE · OPERATIONS"}
+              {"POWERED BY PULSE"}
             </span>
           </span>
           {v.railOpen && (
@@ -96,14 +100,14 @@ export default function AppShell({ v }: Props) {
               </div>
               <div style={{"display":"flex","alignItems":"center","gap":"11px","marginTop":"12px"}}>
                 <div style={{"width":"40px","height":"40px","flex":"none","borderRadius":"999px","background":"var(--accent-soft)","color":"var(--accent)","display":"flex","alignItems":"center","justifyContent":"center","fontSize":"13px","fontWeight":"600"}}>
-                  {"MK"}
+                  {"DM"}
                 </div>
                 <div style={{"minWidth":"0"}}>
                   <div style={{"fontSize":"17px","fontWeight":"600","letterSpacing":"-.3px","color":"var(--ink)","whiteSpace":"nowrap","overflow":"hidden","textOverflow":"ellipsis"}}>
-                    {"Martin Kilbride"}
+                    {"David McParland"}
                   </div>
                   <div style={{"fontSize":"12.5px","color":"var(--faint)","marginTop":"2px","whiteSpace":"nowrap","overflow":"hidden","textOverflow":"ellipsis"}}>
-                    {"Kilbride Group · Owner"}
+                    {"Shaka Poké · Owner"}
                   </div>
                 </div>
               </div>
@@ -143,14 +147,14 @@ export default function AppShell({ v }: Props) {
             </button>
             <div style={css(cat(v.railRowStyle, "margin-top:10px;padding:12px 10px;border-top:1px solid var(--border)"))}>
               <div style={{"width":"40px","height":"40px","flex":"none","borderRadius":"12px","background":"var(--surface-2)","border":"1px solid var(--border)","color":"var(--body)","display":"flex","alignItems":"center","justifyContent":"center","fontSize":"12px","fontWeight":"600","cursor":"pointer"}}>
-                {"MK"}
+                {"DM"}
               </div>
               <span style={css(v.brandStyle)}>
                 <span style={{"display":"block","fontSize":"14px","fontWeight":"500","color":"var(--ink)"}}>
-                  {"Martin Kilbride"}
+                  {"David McParland"}
                 </span>
                 <span style={{"display":"block","marginTop":"2px","fontSize":"12px","color":"var(--faint)"}}>
-                  {"Kilbride Group · Owner"}
+                  {"Shaka Poké · Owner"}
                 </span>
               </span>
             </div>
@@ -287,6 +291,10 @@ export default function AppShell({ v }: Props) {
                       </button>
                     </>
                   )}
+                  <span title="Every figure, employee, invoice and forecast here is an illustrative demo assumption" style={{"flex":"none","display":"inline-flex","alignItems":"center","gap":"6px","height":"26px","padding":"0 10px","margin":"0 4px","borderRadius":"999px","border":"1px solid var(--warn-soft)","background":"var(--warn-soft)","color":"var(--warn)","fontSize":"11px","fontWeight":"500","whiteSpace":"nowrap"}}>
+                    <span style={{"width":"5px","height":"5px","borderRadius":"2px","background":"var(--warn)"}} />
+                    {"Demo data"}
+                  </span>
                   <button className="ix2" onClick={v.toggleNotifs} style={{"position":"relative","width":"42px","height":"42px","border":"0","borderRadius":"999px","background":"none","cursor":"pointer","color":"var(--dim)","display":"flex","alignItems":"center","justifyContent":"center","transition":"background .2s var(--ease),color .2s var(--ease)"}}>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M6 8.5a6 6 0 0 1 12 0c0 6.5 2.6 8.5 2.6 8.5H3.4S6 15 6 8.5Z M10.3 20.5a1.94 1.94 0 0 0 3.4 0" />
@@ -311,7 +319,7 @@ export default function AppShell({ v }: Props) {
                         <>
                           <div style={{"minWidth":"0"}}>
                             <div style={{"fontSize":"12px","fontWeight":"500","lineHeight":"1.2","whiteSpace":"nowrap"}}>
-                              {"Martin Kilbride"}
+                              {"David McParland"}
                             </div>
                             <div style={{"fontSize":"10.5px","color":"var(--faint)","lineHeight":"1.2"}}>
                               {"Owner"}
@@ -389,7 +397,7 @@ export default function AppShell({ v }: Props) {
         {v.isDashboard && <DashboardKpiBand v={v} />}
         <div data-scroll-main="1" style={{"flex":"1","minHeight":"0","overflowY":"auto","overflowX":"hidden","scrollbarWidth":"none"}}>
           {v.isChat && <Home v={v} />}
-          {v.isWork && <Work v={v} />}
+          {v.isWork && <ShakaPage v={v} />}
           {v.isRecords && <Records v={v} />}
           {v.rec?.isContacts && (
             <>
@@ -471,7 +479,8 @@ export default function AppShell({ v }: Props) {
           )}
           {v.rec?.isFiles && <RecordsFiles v={v} />}
           {v.rec?.isOntology && <RecordsOntology v={v} />}
-          {v.isActivity && <Activity v={v} />}
+          {v.rec?.isTables && <RecordsTables />}
+          {v.isActivity && <ShakaPage v={v} />}
           {v.act?.detailOpen && (
             <>
               <div onClick={v.act?.closeDetail} style={{"position":"fixed","inset":"0","zIndex":"68","background":"var(--scrim)","backdropFilter":"blur(6px)","display":"flex","justifyContent":"flex-end"}}>
@@ -575,8 +584,9 @@ export default function AppShell({ v }: Props) {
               </div>
             </>
           )}
-          {v.isSettings && <Settings v={v} />}
-          {v.isDashboard && <Dashboard v={v} />}
+          {v.isSettings && <ShakaPage v={v} />}
+          {v.isDashboard && <ShakaPage v={v} />}
+          {(v.page === "Finance" || v.page === "Sales" || v.page === "Purchasing" || v.page === "Stock" || v.page === "Recipes" || v.page === "Team") && <ShakaPage v={v} />}
           {v.isAgents && <Agents v={v} />}
         </div>
       </main>
@@ -820,6 +830,7 @@ export default function AppShell({ v }: Props) {
       {v.newRec?.open && <NewRecordDialog v={v} />}
       {v.paletteOpen && <CommandPalette v={v} />}
       {v.bgGallery?.open && <BackgroundGallery v={v} />}
+      <ShakaOverlays />
     </div>
     </>
   );
