@@ -54,7 +54,7 @@ export default function HeliosMini({ v }: Props) {
                       {txt(v.miniGreeting)}
                     </div>
                     <div style={{"fontSize":"12.5px","color":"var(--dim)","marginTop":"6px","lineHeight":"1.5","textWrap":"pretty"}}>
-                      {"Reads what you can see. Ask about this page, or pick one of these."}
+                      {"Read-only demo answers from the same figures as every page. Pick one to try."}
                     </div>
                     <div style={{"display":"flex","flexDirection":"column","gap":"7px","marginTop":"14px"}}>
                       {arr(v.miniSuggestions).map((s: any, i117: number) => (

@@ -11,3 +11,4 @@
 @media (prefers-reduced-motion:reduce){.shk-page,.shk-page *,.shk-drawer,.shk-drawer *{animation:none !important;transition:none !important}}
 [data-reduce-motion] *{animation:none !important;transition:none !important}
 [data-theme="light"]{--brand-2:#0a6fb8}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}

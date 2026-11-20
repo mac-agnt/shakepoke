@@ -69,13 +69,18 @@ import { getState as shakaState, subscribe as shakaSubscribe, bindNavigator, act
   pnl as shakaPnl, approvals as shakaApprovals, briefingText, taskStatus as shakaTaskStatus, searchRecords as shakaSearch, AGENTS as SHAKA_AGENTS, expenses as shakaExpenses } from "../shaka/store";
 import { PAGE_TABS, tabOf as shakaTab } from "../shaka/nav";
 import { shakaAnswer } from "../shaka/answers";
+import { getFin, subscribeFin, bindFinNavigator, fin, brief as finBrief, counts as finCounts, packProgress as finPack, monthRow as finMonth, spendTotals as finSpend, searchFin } from "../shaka/fin/store";
+import { FIN_TABS, finTab, LEGACY_REDIRECT, NOT_INCLUDED, SLUG, pageFromSlug, PAGE_LABEL } from "../shaka/fin/nav";
+import { finAnswer, SUGGESTED as FIN_SUGGESTED } from "../shaka/fin/answers";
 import { PEOPLE as SHAKA_PEOPLE, CORPORATE as SHAKA_CORP } from "../shaka/model";
 
 /* ── Locked layout ──────────────────────────────────────────────────────────
    These two rules hold for every client build, whatever data.js says:
    1. Records always opens on Ontology, and Ontology is always the first tab.
       If a customisation drops or renames it, the stock Ontology tab is put back.
-   2. Agents always sits directly under Home in the side rail.
+   2. Home is first in the side rail, and Agents sits directly under it when a
+      build includes Agents. The Shaka Poké finance-first build has no Agents
+      area (out of scope for phase one), so the rail starts Home, Invoices.
    Re-theme and re-label freely; don't remove these guards. */
 const ONTOLOGY_SECTION = {id:"ontology", label:"Ontology", blurb:"How every record connects: entities, predicates and the paths between them."};
 const REC_SECTIONS = [REC_SECTIONS_RAW.find(s => s.id === "ontology") || ONTOLOGY_SECTION]
@@ -83,15 +88,25 @@ const REC_SECTIONS = [REC_SECTIONS_RAW.find(s => s.id === "ontology") || ONTOLOG
 const NAV = (() => {
   const items = NAV_RAW.filter(n => n.page !== "Home" && n.page !== "Agents");
   const home = NAV_RAW.find(n => n.page === "Home") || {label:"Home", icon:"helios", page:"Home"};
-  const agents = NAV_RAW.find(n => n.page === "Agents") || {label:"Agents", icon:"navAgents", page:"Agents"};
+  const agents = NAV_RAW.find(n => n.page === "Agents");
   // Leading dividers would otherwise sit between Agents and the next item.
   while (items.length && items[0].divider) items.shift();
-  return [home, agents].concat(items);
+  return (agents ? [home, agents] : [home]).concat(items);
 })();
+
+/* Hash routes and retired pages. A legacy page either redirects to the nearest
+   retained area or renders a short "not in the initial rollout" page. */
+const PAGES = ["Home", "Invoices", "Ingredients", "Money", "Pack", "Records", "Settings"];
+const initialPage = () => {
+  if (typeof window === "undefined") return "Home";
+  const slug = (window.location.hash || "").replace(/^#\/?/, "").split("/")[0];
+  return pageFromSlug(slug) || "Home";
+};
+const resolvePage = (p) => PAGES.indexOf(p) > -1 ? p : LEGACY_REDIRECT[p] ? LEGACY_REDIRECT[p].page : NOT_INCLUDED[p] ? "NotIncluded" : "Home";
 
 /* All state and behaviour for Pulse. renderVals() returns the flat object the views render from. */
 export default class PulseLogic extends DCLogic {
-  state = { w: typeof window === "undefined" ? 1440 : window.innerWidth, theme:"harbour", page:"Home", draft:"", query:"", thread:[], typed:0, paletteOpen:false, showNotifs:false, palScope:"All", palSel:0, palRecent:["INV-AVO-118","Finance Agent"],
+  state = { w: typeof window === "undefined" ? 1440 : window.innerWidth, theme:"harbour", page:initialPage(), draft:"", query:"", thread:[], typed:0, paletteOpen:false, showNotifs:false, palScope:"All", palSel:0, palRecent:["avocado","INV-GBP-1047"],
             done:{}, resolved:{}, approved:{}, inboxFilter:"All", approvalFilter:"Awaiting you", open:null, range:"30d",
             workDoc:null, workDocTab:"work",
             queue:"mine", recordTab:"Overview", record:"person", hovered:null, hoverLabel:"", hoverHint:"", hoverTop:0,
@@ -106,7 +121,7 @@ export default class PulseLogic extends DCLogic {
             newRecOpen:false, newRecName:"", newRecTemplate:"Field sheet", newRecCat:"All",
             opsFilter:"all", opsOff:{}, opsOpen:null, opsScope:"week", opsDay:26, opsOrder:null, opsDrag:null,
             opsBuilderOpen:false, opsBuilderMode:"workflow", builderText:"", builderGenerated:false,
-            railOpen:true, barOpen:true, chatRailPinned:false, widgetEdit:false, widgets:["kpi","inbox","work","activity"],
+            railOpen:typeof window === "undefined" || window.innerWidth >= 900, barOpen:true, chatRailPinned:false, widgetEdit:false, widgets:["inbox","kpi","activity"],
             kpiEdit:false, kpiKeys:["sales","expenses","profit","margin","labour"],
             aspect:"sales", filterMenuOpen:false, customFilter:"", extraFilters:[],
             workWidget:"queue", miniOpen:false, miniThread:[], miniDraft:"", miniTab:"chat", miniTone:"plain", miniWorkOpen:"tasks",
@@ -1165,7 +1180,12 @@ export default class PulseLogic extends DCLogic {
 
   componentDidMount(){
     bindNavigator((page) => this.go(page), (id) => this.setState({agentId:id}));
+    bindFinNavigator((page) => this.go(page));
     this._shakaUnsub = shakaSubscribe(() => this.forceUpdate());
+    this._finUnsub = subscribeFin(() => this.forceUpdate());
+    this._hash = () => { const p = initialPage(); if (p !== this.state.page) this.go(p); };
+    window.addEventListener("hashchange", this._hash);
+    this.syncRoute();
     requestAnimationFrame(() => this.syncRailThumb());
     setTimeout(() => this.syncRailThumb(), 700);
     setTimeout(() => { const nav = document.querySelector('nav[data-rail-nav]');
@@ -1223,10 +1243,10 @@ export default class PulseLogic extends DCLogic {
     };
     window.addEventListener("paste", this._paste);
   }
-  componentWillUnmount(){ if (this._shakaUnsub) this._shakaUnsub(); window.removeEventListener("paste", this._paste); window.removeEventListener("resize", this._resize); window.removeEventListener("keydown", this._key); clearInterval(this._t); clearInterval(this._clockTimer); clearInterval(this._flapBoot); cancelAnimationFrame(this._raf); clearInterval(this._fallback); clearInterval(this._actTimer); clearInterval(this._kpiTimer); }
+  componentWillUnmount(){ if (this._shakaUnsub) this._shakaUnsub(); if (this._finUnsub) this._finUnsub(); window.removeEventListener("hashchange", this._hash); window.removeEventListener("paste", this._paste); window.removeEventListener("resize", this._resize); window.removeEventListener("keydown", this._key); clearInterval(this._t); clearInterval(this._clockTimer); clearInterval(this._flapBoot); cancelAnimationFrame(this._raf); clearInterval(this._fallback); clearInterval(this._actTimer); clearInterval(this._kpiTimer); }
 
   ask(q){
-    const a = shakaAnswer(q);
+    const a = finAnswer(q);
     const words = a.text.split(" ").length;
     const thread = this.state.thread.concat([
       {role:"user", text:q},
@@ -1254,7 +1274,23 @@ export default class PulseLogic extends DCLogic {
       if (!this._railLive){ this._railLive = true; setTimeout(() => this.setState({railThumbLive:true}), 60); }
     }
   }
-  componentDidUpdate(){ this.syncRailThumb(); }
+  componentDidUpdate(){ this.syncRailThumb(); this.syncRoute(); }
+  /* Redirect retired pages, then mirror the page in the URL hash. */
+  syncRoute(){
+    const p = this.state.page, red = LEGACY_REDIRECT[p];
+    if (red){
+      if (red.tab) fin.setTab(red.page, red.tab);
+      this.setState(red.rec ? {page:red.page, recSection:red.rec} : {page:red.page});
+      if (p === "Activity") fin.setTab("RecordsData", "Activity");
+      return;
+    }
+    if (typeof window === "undefined" || this._routed === p) return;
+    this._routed = p;
+    const slug = SLUG[p] || "home";
+    if ((window.location.hash || "").replace(/^#\/?/, "") !== slug){
+      try { window.history.replaceState(null, "", "#/" + slug); } catch (e) {}
+    }
+  }
 
   go(page){
     const order = NAV.filter(n => !n.divider).map(n => n.page).concat(["Settings"]);
@@ -1279,7 +1315,7 @@ export default class PulseLogic extends DCLogic {
     });
   }
   askMini(q){
-    const a = shakaAnswer(q);
+    const a = finAnswer(q);
     this.setState(prev => ({
       miniThread: prev.miniThread.concat([{role:"user", text:q}, {role:"helios", text:a.text}]),
       miniDraft: ""
@@ -1361,7 +1397,8 @@ export default class PulseLogic extends DCLogic {
         }
       }, 450);
     }
-    const st = this.state, page = st.page;
+    const st = this.state, page = resolvePage(st.page);
+    const fs = getFin(), finOpen = finCounts(fs).attention, fbrief = finBrief(fs);
     const shk = shakaState();
     const shkAttention = shakaAttention(shk);
     const openKeys = shkAttention.map(a => a.id).filter(k => ITEMS[k]);
@@ -1421,7 +1458,7 @@ export default class PulseLogic extends DCLogic {
     const nav = NAV.map((n, idx) => n.divider
       ? {isDivider:true, isItem:false}
       : {isItem:true, isDivider:false, label:n.label, hint: railOpen ? (n.hint || "") : "", d:ICONS[n.icon],
-         dot: n.dot === true && openKeys.length > 0,
+         dot: n.dot === true && finOpen > 0,
          dotStyle: "position:absolute;top:5px;" + (railOpen ? "left:30px" : "right:6px")
            + ";width:5px;height:5px;border-radius:50%;background:var(--accent)",
          inlineStyle: inlineStyle(st.railHov === idx, n.page === page),
@@ -1751,12 +1788,12 @@ export default class PulseLogic extends DCLogic {
     const HERO = {
       contacts:{eyebrow:"CONTACTS · " + CONTACTS.length + " ON FILE", title:"Everyone you deal with",
         blurb:"Staff and external in one place. Ask in your own words — it matches on name, role, organisation and tag.",
-        placeholder:"Try “Blackrock”, “supplier”, “kitchen”…", kind:"KEYWORD", scroll:"SCROLL FOR THE FULL LIST",
-        suggestions:["Blackrock","supplier","kitchen","Baggot"]},
+        placeholder:"Try “Blackrock”, “supplier”, “manager”…", kind:"KEYWORD", scroll:"SCROLL FOR THE FULL LIST",
+        suggestions:["Blackrock","supplier","manager","Baggot"]},
       files:{eyebrow:"FILES · " + FILE_TREE.filter(r => r.type === "file").length + " DOCUMENTS",
-        title:"Everything on record", blurb:"Supplier invoices, receipts, the recipe sheet and finance packs (demo documents).",
+        title:"Everything on record", blurb:"Supplier invoices, receipts, the costing sheet and accountant packs (demo documents).",
         placeholder:"Search inside every document…", kind:"FULL TEXT", scroll:"SCROLL FOR THE VIEWER",
-        suggestions:["avocado","salmon","backfill","transfer"]},
+        suggestions:["avocado","salmon","receipt","summary"]},
       tables:{eyebrow:"TABLES", title:"Every record type", blurb:recSec.blurb, placeholder:"", kind:"", scroll:"", suggestions:[]},
       ontology:{eyebrow:"ONTOLOGY", title:"Ontology", blurb:recSec.blurb,
         placeholder:"", kind:"", scroll:"", suggestions:[]}
@@ -2371,7 +2408,7 @@ export default class PulseLogic extends DCLogic {
       }),
       run: () => { if ((st.ontoQuery || "").trim()) this.runOntoQuery(); else this.planSearch(); try { this.setState({gTick: Math.random()}); } catch (e) {} },
       legend: CLUSTERS.map((c, i) => ({label:c[0], bg:c[1],
-        pick: () => { shaka.setTab("RecordsEntity", ["Suppliers","Ingredients","Recipes","Sales orders","Settlements","Locations","Staff","Transfers"][i] || "Invoice documents"); this.setState({recSection:"tables"}); },
+        pick: () => { fin.setTab("RecordsData", ["Invoices","Invoice lines","Ingredients","Invoice lines","Monthly figures","Monthly figures","Monthly figures","Invoices"][i] || "Invoices"); this.setState({recSection:"tables"}); },
         count: g ? String((this._legendCounts || (this._legendCounts = (() => {
           const c = new Array(CLUSTERS.length).fill(0);
           for (const nd of g.nodes) if (nd.kind !== "core" && nd.cluster >= 0) c[nd.cluster]++;
@@ -2794,8 +2831,8 @@ export default class PulseLogic extends DCLogic {
        contributions:[{n:"6",k:"entities"},{n:"9",k:"helios tools"},{n:"12",k:"events"}]}
     ];
 
-    const notificationFeed = shkAttention.map(a => ({dot: a.tone === "bad" ? RED : a.tone === "warn" ? AMBER : LIME, text:a.title + ". " + a.why, event:a.id.toUpperCase(), channel:"Inbox", meta:a.age}))
-      .concat(shk.activity.slice(0, 3).map(a => ({dot:NEUTRAL, text:a.actor + ": " + a.text, event:a.entity, channel:"Activity", meta:"Logged"})));
+    const notificationFeed = fbrief.map(a => ({dot: a.tone === "warn" ? AMBER : a.tone === "ok" ? GREEN : LIME, text:a.title + ". " + a.why, event:a.id.toUpperCase(), channel:"Home", meta:"Today", go:a.go}))
+      .concat(fs.activity.slice(0, 3).map(a => ({dot:NEUTRAL, text:a.who + ": " + a.text, event:a.ref || "LOG", channel:"Activity", meta:a.ts})));
 
     const FEATURES = [["approvals","Approvals"],["automations","Automations"],["insights","Insights"],["customEntities","Custom entities"],["whatsapp","WhatsApp channel"],["composio","Composio actions"]];
     const features = FEATURES.map(f => {
@@ -2824,35 +2861,33 @@ export default class PulseLogic extends DCLogic {
       recents.length ? {group:"Recent", scope:"All", items:recents.slice(0, 3).map(r => ({title:r, meta:"Recent search", hint:"AGAIN", glyph:"recent",
         go: () => this.setState({query:r, palSel:0})}))} : null,
       {group:"Actions", scope:"Actions", items:[
-        {title:"Start a new Helios conversation", meta:"Clears the current thread", hint:"ACTION", glyph:"action",
+        {title:"Start a new Home conversation", meta:"Clears the current thread", hint:"ACTION", glyph:"action",
           go: () => { clearInterval(this._t); this.setState({page:"Home", thread:[], typed:0, draft:""}); }},
-        {title:"Review approvals waiting on you", meta:"Work · approvals", hint:"ACTION", glyph:"action",
-          go: () => { this.setState({paletteOpen:false, query:""}); shaka.go("Work", "Approvals"); }},
-        {title:"Review invoice exceptions (FIN-112)", meta:"Finance · invoice inbox", hint:"ACTION", glyph:"action",
-          go: () => { this.setState({paletteOpen:false, query:""}); shaka.go("Finance", "Invoice Inbox"); }},
+        {title:"Review invoices that need you", meta:"Invoices · " + finOpen + " open", hint:"ACTION", glyph:"action",
+          go: () => { this.setState({paletteOpen:false, query:""}); fin.go("Invoices", "Needs review"); }},
+        {title:"Capture an invoice (demo)", meta:"Invoices · simulated upload", hint:"ACTION", glyph:"action",
+          go: () => { this.setState({paletteOpen:false, query:""}); fin.go("Invoices"); fin.openCapture(true); }},
+        {title:"Export the accountant pack", meta:"Accountant Pack · CSV", hint:"ACTION", glyph:"action",
+          go: () => { this.setState({paletteOpen:false, query:""}); fin.go("Pack", "Exports"); }},
         {title:"Reset the demo data", meta:"Start the presentation again", hint:"ACTION", glyph:"action",
-          go: () => { this.setState({paletteOpen:false, query:""}); shaka.reset(); }},
+          go: () => { this.setState({paletteOpen:false, query:""}); fin.reset(); }},
         {title:themeAction, meta:"Appearance", hint:"ACTION", glyph:"action",
           go: () => this.setState(p => p.theme === "light" ? {theme: p.darkTheme || this.props.theme || "harbour"} : {theme:"light", darkTheme:p.theme})},
-        {title:"Open systems and data sources", meta:"Settings · systems", hint:"ACTION", glyph:"action",
-          go: () => { this.setState({paletteOpen:false, query:""}); shaka.go("Settings", "Systems"); }}
+        {title:"Scope and pricing", meta:"Settings · optional commercial information", hint:"ACTION", glyph:"action",
+          go: () => { this.setState({paletteOpen:false, query:""}); fin.go("Settings", "Scope & pricing"); }}
       ]},
-      {group:"Agents", scope:"Agents", items:st.agents.slice(0, 4).map(a => ({title:a.name, meta:a.role, hint:a.group ? "GROUP" : "AGENT", glyph:"agent",
-        go: () => this.setState({page:"Agents", agentId:a.id})}))},
-      {group:"Work", scope:"Work", items:TASKS.slice(0, 5).map(t => ({title:t.title, meta:t.subject + " · due " + t.due, hint:"TASK", glyph:"task",
-        go: () => { this.setState({paletteOpen:false, query:""}); shaka.open("task", t.id); }}))},
-      {group:"Records", scope:"Records", items:(ql ? shakaSearch(ql) : []).map(r => ({title:r.label, meta:r.sub, hint:r.kind.toUpperCase(), glyph:r.kind === "person" ? "person" : "org",
-        go: () => { this.setState({paletteOpen:false, query:""}); shaka.open(r.kind, r.id); }}))
-        .concat(SHAKA_PEOPLE.slice(0, 3).map(p => ({title:p.name, meta:p.role, hint:"PERSON", glyph:"person",
-        go: () => { this.setState({paletteOpen:false, query:""}); shaka.open("person", p.id); }})))},
-      {group:"Pages", scope:"Pages", items:Object.keys(PAGE_TABS).flatMap(pg => PAGE_TABS[pg].map(tb => ({title:pg + " › " + tb, meta:"Open page", hint:"PAGE", glyph:"page",
-        go: () => { this.setState({paletteOpen:false, query:""}); shaka.go(pg, tb); }})))}
+      {group:"Work", scope:"Work", items:fs.invoices.filter(i => i.status === "attention").map(i => ({title:i.id + " needs a decision", meta:(i.issueText || "").slice(0, 70), hint:"INVOICE", glyph:"task",
+        go: () => { this.setState({paletteOpen:false, query:""}); fin.openInvoice(i.id); }}))},
+      {group:"Records", scope:"Records", items:(ql ? searchFin(ql) : []).map(r => ({title:r.label, meta:r.sub, hint:r.kind.toUpperCase(), glyph:"org",
+        go: () => { this.setState({paletteOpen:false, query:""}); r.go(); }}))},
+      {group:"Pages", scope:"Pages", items:Object.keys(FIN_TABS).flatMap(pg => FIN_TABS[pg].map(tb => ({title:(PAGE_LABEL[pg] || pg) + " › " + tb, meta:"Open page", hint:"PAGE", glyph:"page",
+        go: () => { this.setState({paletteOpen:false, query:""}); fin.go(pg, tb); }})))}
     ].filter(Boolean);
 
     const match = g => g.items.filter(i => !ql || (i.title + " " + i.meta).toLowerCase().includes(ql));
     const scopeCounts = {All:0};
     SEARCH.forEach(g => { const n = match(g).length; scopeCounts.All += n; if (g.scope !== "All") scopeCounts[g.scope] = (scopeCounts[g.scope] || 0) + n; });
-    const palScopes = ["All","Actions","Agents","Work","Records","Pages"].map(name => {
+    const palScopes = ["All","Actions","Work","Records","Pages"].map(name => {
       const on = scope === name;
       return {label:name, count:scopeCounts[name] || 0,
         style:"flex:none;display:flex;align-items:center;gap:6px;height:26px;padding:0 11px;border-radius:var(--r-ctl,9px);cursor:pointer;font-size:12px;transition:background .2s var(--ease),color .2s var(--ease),border-color .2s var(--ease);"
@@ -2904,16 +2939,16 @@ export default class PulseLogic extends DCLogic {
 
     /* ---- launcher (no query): page kit, frequents, recents, jump-to ---- */
     const jump = (p, extra, tab) => () => {
-      if (tab) shaka.setTab(p, tab);
+      if (tab) fin.setTab(p, tab);
       this.setState(Object.assign({page:p, paletteOpen:false, query:"", palSel:0}, extra || {}));
       if (p === "Dashboard") this.startKpiCount();
     };
     const KITS = {
       Home: [
-        {title:"What needs reviewing?", meta:"Helios · from shared state", icon:ICONS.helios, go: () => { this.setState({paletteOpen:false, query:"", page:"Home"}); this.ask("What needs reviewing?"); }},
-        {title:"Invoice inbox", meta:"FIN-112", icon:ICONS.inbox, go: jump("Finance", null, "Invoice Inbox")},
+        {title:"What needs my approval?", meta:"Demo answer from shared data", icon:ICONS.helios, go: () => { this.setState({paletteOpen:false, query:"", page:"Home"}); this.ask("What needs my approval?"); }},
+        {title:"Invoices", meta:finOpen + " need checking", icon:ICONS.inbox, go: jump("Invoices", null, "Needs review")},
         {title:"Edit widgets", meta:"Rearrange the right rail", icon:ICONS.dash, go: jump("Home", {widgetEdit:true})},
-        {title:"Tomorrow's prep", meta:"COR-1113 · 48 bowls", icon:ICONS.work, go: jump("Stock", null, "Prep")}
+        {title:"Accountant Pack", meta:"October 2026", icon:ICONS.records, go: jump("Pack", null, "Checklist")}
       ],
       Records: [
         {title:"File tree", meta:"Browse documents", icon:ICONS.files, go: jump("Records", {recSection:"files"})},
@@ -2923,28 +2958,26 @@ export default class PulseLogic extends DCLogic {
       ]
     };
     const palPageRaw = KITS[page] || [
-      {title:"Ask Helios about this page", meta:"It sees what you see", icon:ICONS.helios, go: () => { this.setState({paletteOpen:false, query:"", page:"Home"}); this.ask("What should I know about " + page + "?"); }},
-      {title:"Action inbox", meta:openKeys.length + " waiting on you", icon:ICONS.inbox, go: jump("Home")},
-      {title:"My work", meta:"Tasks due today", icon:ICONS.work, go: jump("Work", {queue:"mine"})},
+      {title:"Ask about this page", meta:"Demo answers from shared data", icon:ICONS.helios, go: () => { this.setState({paletteOpen:false, query:"", page:"Home"}); this.ask("What should I know about " + (PAGE_LABEL[page] || page) + "?"); }},
+      {title:"Home briefing", meta:fbrief.length + " actions today", icon:ICONS.inbox, go: jump("Home")},
+      {title:"Invoices", meta:finOpen + " need checking", icon:ICONS.work, go: jump("Invoices", null, "Needs review")},
       {title:"Records", meta:"Every record you can see", icon:ICONS.navRecords, go: jump("Records")}
     ];
     const FREQ = [
-      {title:"Invoice inbox", count:"FIN-112", icon:ICONS.inbox, go: jump("Finance", null, "Invoice Inbox")},
-      {title:"Approvals", count:String(shakaApprovals(shk).filter(a => a.pending).length), icon:ICONS.approvals, go: jump("Work", null, "Approvals")},
-      {title:"P&L", count:"Oct", icon:ICONS.insights, go: jump("Finance", null, "P&L")},
-      {title:"Avocado cost", count:"+20%", icon:ICONS.orgs, go: jump("Recipes", null, "Cost Changes")},
-      {title:"Briefing", count:"08:00", icon:ICONS.agents, go: jump("Agents", {agentId:"briefing"})},
-      {title:"Transfers", count:"TRF", icon:ICONS.visits, go: jump("Stock", null, "Transfers")}
+      {title:"Invoices to check", count:String(finOpen), icon:ICONS.inbox, go: jump("Invoices", null, "Needs review")},
+      {title:"Avocado cost", count:"+20%", icon:ICONS.orgs, go: () => { this.setState({paletteOpen:false, query:"", palSel:0}); fin.focusIngredient("AVO"); }},
+      {title:"October P&L", count:"Oct", icon:ICONS.insights, go: jump("Money", null, "Overview")},
+      {title:"Shops compared", count:"2", icon:ICONS.locations, go: jump("Money", null, "Locations")},
+      {title:"Accountant Pack", count:finPack(fs).done + "/" + finPack(fs).total, icon:ICONS.records, go: jump("Pack", null, "Checklist")},
+      {title:"Exports", count:"CSV", icon:ICONS.files, go: jump("Pack", null, "Exports")}
     ];
     const JUMPS = [
       {title:"Home", icon:ICONS.navHome, go: jump("Home")},
-      {title:"Work", icon:ICONS.navWork, go: jump("Work")},
-      {title:"Finance", icon:ICONS.navFinance, go: jump("Finance")},
-      {title:"Stock", icon:ICONS.navStock, go: jump("Stock")},
+      {title:"Invoices", icon:ICONS.navFinance, go: jump("Invoices")},
+      {title:"Ingredient Costs", icon:ICONS.navRecipes, go: jump("Ingredients")},
+      {title:"Money & Reports", icon:ICONS.navDash, go: jump("Money")},
+      {title:"Accountant Pack", icon:ICONS.records, go: jump("Pack")},
       {title:"Records", icon:ICONS.navRecords, go: jump("Records")},
-      {title:"Dashboard", icon:ICONS.navDash, go: jump("Dashboard")},
-      {title:"Agents", icon:ICONS.navAgents, go: jump("Agents")},
-      {title:"Activity", icon:ICONS.navActivity, go: jump("Activity")},
       {title:"Settings", icon:ICONS.navAdmin, go: jump("Settings")}
     ];
     const RECENT_WHEN = ["2 min", "18 min", "1 h", "yesterday"];
@@ -3009,11 +3042,11 @@ export default class PulseLogic extends DCLogic {
     const DIRS_ORDER = ["People","Organisations","Teams","Locations","Transfers"];
     const ADMIN_ORDER = ["Automations","System health","Installed modules"];
     let contextNav, contextHint, searchHint;
-    if (PAGE_TABS[page]){
-      const cur = shakaTab(shk, page);
-      const counts = {"Invoice Inbox": shakaInbox(shk).exceptions, "Approvals": shakaApprovals(shk).filter(a => a.pending).length, "Tasks": shk.tasks.filter(t => shakaTaskStatus(t, shk) !== "Done").length};
-      contextNav = PAGE_TABS[page].map(tb => seg(tb, cur === tb, () => shaka.setTab(page, tb), counts[tb] ? String(counts[tb]) : ""));
-      contextHint = page.toUpperCase() + " · " + cur.toUpperCase() + " · DEMO DATA";
+    if (FIN_TABS[page]){
+      const cur = finTab(fs, page);
+      const counts = {"Needs review": finOpen, "Checklist": finPack(fs).total - finPack(fs).done};
+      contextNav = FIN_TABS[page].map(tb => seg(tb, cur === tb, () => fin.setTab(page, tb), counts[tb] ? String(counts[tb]) : ""));
+      contextHint = (PAGE_LABEL[page] || page).toUpperCase() + " · " + cur.toUpperCase() + " · DEMO DATA";
       searchHint = "Search records, pages and actions";
     } else if (page === "Settings"){
       contextNav = ADMIN_GROUPS.map(grp => seg(
@@ -3038,12 +3071,16 @@ export default class PulseLogic extends DCLogic {
         () => this.setState({workSection:s.id, opsOpen:null}), String(WORK_COUNTS[s.id])));
       contextHint = "WORK · " + workSec.label.toUpperCase();
       searchHint = "Search " + workSec.label.toLowerCase();
+    } else if (page === "NotIncluded"){
+      contextNav = [seg("Not in phase one", true, () => {}), seg("Home", false, () => this.go("Home"))];
+      contextHint = "NOT INCLUDED IN THE INITIAL ROLLOUT";
+      searchHint = "Search records, pages and actions";
     } else if (page === "Home" || page === "Dashboard"){
       contextNav = [
         seg("Home", page === "Home", () => this.go("Home")),
-        seg("Dashboard", page === "Dashboard", () => this.go("Dashboard"))
+        seg("Money & Reports", false, () => fin.go("Money", "Overview"))
       ];
-      contextHint = page === "Home" ? "HELIOS · " + openKeys.length + " WAITING · DEMO DATA" : "OCTOBER 2026 · DEMO DATA";
+      contextHint = "DEMO ANSWERS · " + finOpen + " TO CHECK · DEMO DATA";
       searchHint = page === "Dashboard" ? "Search the dashboard" : "Search every record you can see";
     } else if (page === "Agents"){
       contextNav = [];
@@ -3145,13 +3182,16 @@ export default class PulseLogic extends DCLogic {
       removeActivity: () => this.toggleIn("widgets", "activity"),
       removeKpi: () => this.toggleIn("widgets", "kpi"),
       removeVisits: () => this.toggleIn("widgets", "visits"),
-      miniKpis: [
-        {label:"Net sales", value:eur0(SP.sales), delta:"October", deltaColor:DIM},
-        {label:"Est. operating profit", value:eur0(SP.profit), delta:(SP.profit / SP.sales * 100).toFixed(1) + "% margin", deltaColor:GREEN},
-        {label:"Baggot Street", value:eur0(SPB.profit), delta:(SPB.profit / SPB.sales * 100).toFixed(1) + "%", deltaColor:GREEN},
-        {label:"Blackrock", value:eur0(SPK.profit), delta:(SPK.profit / SPK.sales * 100).toFixed(1) + "%", deltaColor:RED}
-      ],
-      goKpis: () => this.go("Dashboard"),
+      miniKpis: (() => {
+        const m = finMonth(fs, "2026-10", "ALL");
+        return [
+          {label:"Sales · Oct", value:eur0(m.sales || 0), delta:"Square import", deltaColor:DIM},
+          {label:"Approved spend", value:eur0(finSpend(fs).ALL), delta:finOpen ? finOpen + " bills to check" : "all bills in", deltaColor:finOpen ? AMBER : GREEN},
+          {label:"Indicative profit", value:m.profit === null ? "Incomplete" : eur0(m.profit), delta:m.status === "complete" ? "all inputs in" : "provisional", deltaColor:m.status === "complete" ? GREEN : AMBER},
+          {label:"Accountant pack", value:finPack(fs).done + " of " + finPack(fs).total, delta:"October", deltaColor:DIM}
+        ];
+      })(),
+      goKpis: () => fin.go("Money", "Overview"),
       visitWidget: [
         {title:"COR-1113 · 48 bowls, Harbour Office Team", when:"Fri 12:15", dot:LIME, go: () => shaka.open("corporate", "COR-1113")},
         {title:"TRF-1113 · Baggot Street to Blackrock", when:"Fri 15:30", dot:LIME, go: () => shaka.open("transfer", "TRF-1113")},
@@ -3604,7 +3644,7 @@ export default class PulseLogic extends DCLogic {
 
       /* mini chat */
       showFab: page !== "Home" && page !== "Agents",
-      fabTitle: st.miniOpen ? "Close Helios" : "Ask Helios",
+      fabTitle: st.miniOpen ? "Close assistant" : "Ask about your figures",
       fabChatStyle: "position:absolute;inset:0;transition:transform .34s var(--ease),opacity .24s var(--ease);"
         + (st.miniOpen ? "transform:rotate(-90deg) scale(.7);opacity:0" : "transform:none;opacity:1"),
       fabCloseStyle: "position:absolute;inset:0;transition:transform .34s var(--ease),opacity .24s var(--ease);"
@@ -3613,13 +3653,14 @@ export default class PulseLogic extends DCLogic {
         + (st.miniMic ? "border:1px solid var(--accent-line);background:var(--accent-soft);color:var(--accent)" : "border:1px solid var(--border);background:none;color:var(--dim)"),
       miniDictate: () => this.setState(prev => ({miniMic: !prev.miniMic})),
       miniAttach: () => this.openPalette(),
-      miniFooter: st.miniMic ? "LISTENING" : "SEES " + page.toUpperCase() + " · ENTER TO SEND",
+      miniFooter: st.miniMic ? "LISTENING (DEMO)" : "DEMO ANSWERS · ENTER TO SEND",
       miniOpen: st.miniOpen,
       toggleMini: () => this.setState(prev => ({miniOpen: !prev.miniOpen})),
-      miniContext: "SEES " + page.toUpperCase(),
+      miniContext: "DEMO ANSWERS · " + (PAGE_LABEL[page] || page).toUpperCase(),
       goHomeChat: () => this.setState({page:"Home", miniOpen:false}),
-      miniIsChat: (st.miniTab || "chat") === "chat", miniIsWork: (st.miniTab || "chat") === "work",
-      miniTabTrack: "position:relative;display:flex;align-items:center;width:164px;padding:2px;background:var(--surface-faint);border:1px solid var(--border);border-radius:var(--r-md,14px);flex:none;box-shadow:inset 0 1px 3px rgba(0,0,0,.34),inset 0 -1px 0 var(--glass-highlight);",
+      /* Chat only: the Work tab belonged to the retired task workstream. */
+      miniIsChat: true, miniIsWork: false,
+      miniTabTrack: "display:none;" + "position:relative;display:flex;align-items:center;width:164px;padding:2px;background:var(--surface-faint);border:1px solid var(--border);border-radius:var(--r-md,14px);flex:none;box-shadow:inset 0 1px 3px rgba(0,0,0,.34),inset 0 -1px 0 var(--glass-highlight);",
       miniTabThumb: (() => {
         const idx = (st.miniTab || "chat") === "chat" ? 0 : 1;
         return "position:absolute;top:2px;bottom:2px;left:2px;width:calc(50% - 2px);border-radius:var(--r-sm,9px);background:var(--pill-bg);box-shadow:0 2px 5px rgba(0,0,0,.34),0 6px 16px rgba(0,0,0,.22),inset 0 1px 0 rgba(255,255,255,.5);"
@@ -3638,11 +3679,11 @@ export default class PulseLogic extends DCLogic {
       miniEmpty: st.miniThread.length === 0,
       miniGreeting: (() => { const h = new Date().getHours();
         const g = h < 5 ? "Still up" : h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : h < 22 ? "Good evening" : "Still going";
-        return g + ", Mac"; })(),
+        return g + ", David"; })(),
       miniSuggestions: [
-        {label:"What changed today?", run:() => this.askMini("What changed today?")},
-        {label:"What needs my decision?", run:() => this.askMini("What needs my decision?")},
-        {label:"Draft a chase for the worst account", run:() => this.askMini("Draft chase emails")}
+        {label:FIN_SUGGESTED[1], run:() => this.askMini(FIN_SUGGESTED[1])},
+        {label:FIN_SUGGESTED[0], run:() => this.askMini(FIN_SUGGESTED[0])},
+        {label:FIN_SUGGESTED[3], run:() => this.askMini(FIN_SUGGESTED[3])}
       ],
       miniWorkSections: (() => {
         const openTasks = WORK_TASKS.filter(t => t.status !== "Done").slice(0, 4);
@@ -3991,8 +4032,8 @@ export default class PulseLogic extends DCLogic {
       })(),
       notificationFeed, features, results,
       inbox: inboxKeys.map(rowFor),
-      inboxTop: shkAttention.slice(0, 4).map(a => ({title:a.title, why:a.why, age:a.age, open:a.go,
-        dot: a.tone === "bad" ? RED : a.tone === "warn" ? AMBER : LIME})),
+      inboxTop: fbrief.map(a => ({title:a.title, why:a.why, age:"Today", open:a.go,
+        dot: a.tone === "warn" ? AMBER : a.tone === "ok" ? GREEN : LIME})),
       inboxFilters: ["All","Approvals","Alerts","Work","Automations"].map(f => ({label:f, style:pillStyle(st.inboxFilter === f), pick:() => this.setState({inboxFilter:f, open:null})})),
       tasks: TASKS.filter(t => t.queue.includes("upcoming") || t.queue.includes("mine")).slice(0, 6).map(decorateTask),
       settingsStyle: railStyle(page === "Settings") + ";animation:railIn .42s var(--ease) 300ms both",
@@ -4000,7 +4041,7 @@ export default class PulseLogic extends DCLogic {
       settingsHovered: st.hovered === "__settings",
       // Live: renderVals reads the real clock every render, and a 1s ticker
       // (Home page only) is what makes a render happen when no one is typing.
-      approvalsCount: openKeys.length,
+      approvalsCount: finOpen,
       approvalsValue: "48,120",
       approvalsSub: "Oldest open two days · two are past their SLA",
       approvalsSpark: [.34,.46,.4,.58,.52,.72,.64,.92].map((v, i, a) => ({
@@ -4011,12 +4052,12 @@ export default class PulseLogic extends DCLogic {
       closeNotifs: () => this.setState({showNotifs:false}),
       homeEyebrow: (() => {
         const live = st.agents.filter(a => a.state === "working" || a.state === "thinking").length;
-        return (live ? live + " AGENTS ACTIVE" : "NO AGENTS ACTIVE") + " · SIMULATED · DEMO DATA";
+        void live; return "DEMO ANSWERS · ILLUSTRATIVE DATA";
       })(),
-      homeSubline: "Ask about invoices, ingredient costs, sales, stock or the team.",
-      approvalsPill: shakaApprovals(shk).filter(a => a.pending).length + " APPROVALS · " + shakaInbox(shk).exceptions + " INVOICE EXCEPTIONS",
-      goApprovals: () => shaka.go("Work", "Approvals"),
-      showApprovalNote: openKeys.length > 0 && !st.approvalNoteHidden,
+      homeSubline: "Ask about bills, ingredient spend, the two shops or the accountant pack.",
+      approvalsPill: finOpen ? finOpen + " INVOICES TO CHECK · OCTOBER PACK " + finPack(fs).done + "/" + finPack(fs).total : "INVOICES CHECKED · OCTOBER PACK " + finPack(fs).done + "/" + finPack(fs).total,
+      goApprovals: () => fin.go(finOpen ? "Invoices" : "Pack", finOpen ? "Needs review" : "Checklist"),
+      showApprovalNote: finOpen > 0 && !st.approvalNoteHidden,
       dismissApprovalNote: () => this.setState({approvalNoteHidden:true}),
       /* Home canvas: a decorative layer the user can switch, scoped to the
          empty chat view so it never competes with a live thread. */
@@ -4139,8 +4180,8 @@ export default class PulseLogic extends DCLogic {
       isWork: page === "Work",
       isSettings: page === "Settings",
       admin: adminModel,
-      inboxCount: String(openKeys.length),
-      inboxEmpty: openKeys.length === 0,
+      inboxCount: String(fbrief.length),
+      inboxEmpty: fbrief.length === 0,
       filteredEmpty: inboxKeys.length === 0,
       queueEmpty: queueTasks.length === 0,
       taskSummary: shk.tasks.filter(t => shakaTaskStatus(t, shk) === "Done").length + " of " + shk.tasks.length + " done",
@@ -4171,14 +4212,9 @@ export default class PulseLogic extends DCLogic {
             : ({label:a.label, bg:a.primary ? LIME : "none", color:a.primary ? "var(--on-accent)" : "var(--ink)", border:a.primary ? LIME : "var(--border)", run:() => a.go ? a.go() : this.ask(a.ask || a.label)}))
         };
       }),
-      suggestions: [
-        {label:"Show my avocado spend", run:() => this.ask("Show my avocado spend")},
-        {label:"Why is Blackrock down?", run:() => this.ask("Why is Blackrock down?")},
-        {label:"What needs reviewing?", run:() => this.ask("What needs reviewing?")},
-        {label:"Prepare tomorrow's bowls", run:() => this.ask("Prepare tomorrow's bowls")}
-      ],
-      activity: shk.activity.slice(0, 5).map(a => ({who:a.actor, what:a.text.length > 90 ? a.text.slice(0, 88) + "…" : a.text, event:a.entity, when:a.demoImport ? "Demo import" : a.type,
-        dot: a.actorKind === "agent" ? LIME : a.actorKind === "system" ? NEUTRAL : AMBER})),
+      suggestions: FIN_SUGGESTED.map(q => ({label:q, run:() => this.ask(q)})),
+      activity: fs.activity.slice(0, 5).map(a => ({who:a.who, what:a.text.length > 90 ? a.text.slice(0, 88) + "…" : a.text, event:a.ref || "", when:a.ts.replace(" (this session)", ""),
+        dot: a.kind === "you" ? LIME : NEUTRAL})),
       /* Cards, not rows: each one lands on its own spring, newest first, with
          the status colour carried into a soft glow behind its marker. */
       notifications: notificationFeed.slice(0,5).map((n, i) => ({
@@ -4270,20 +4306,16 @@ export default class PulseLogic extends DCLogic {
         + "max-width:" + (st.thread.length && !st.chatRailPinned ? "880px" : "760px") + ";"
         + "transition:max-width .38s var(--ease)",
       composerTools: [
-        {label:"Records", icon:ICONS.navRecords, go: () => this.setState({page:"Records"})},
-        {label:"Files", icon:ICONS.files, go: () => this.setState({page:"Records", recSection:"files"})},
-        {label:"Agents", icon:ICONS.navAgents, go: () => this.setState({page:"Agents"})}
-      ].concat([
-        {label:"Avocado spend", icon:ICONS.insights, go: () => this.ask("Show my avocado spend")},
-        {label:"Why is Blackrock down?", icon:ICONS.navDash, go: () => this.ask("Why is Blackrock down?")},
-        {label:"What needs reviewing?", icon:ICONS.approvals, go: () => this.ask("What needs reviewing?")},
-        {label:"Tomorrow's bowls", icon:ICONS.work, go: () => this.ask("Prepare tomorrow's bowls")}
-      ]),
+        {label:"Avocado spend last month", icon:ICONS.insights, go: () => this.ask(FIN_SUGGESTED[0])},
+        {label:"What needs my approval?", icon:ICONS.approvals, go: () => this.ask(FIN_SUGGESTED[1])},
+        {label:"Compare the shops", icon:ICONS.navDash, go: () => this.ask(FIN_SUGGESTED[2])},
+        {label:"Prepare my accountant pack", icon:ICONS.records, go: () => this.ask(FIN_SUGGESTED[3])}
+      ],
       composerPrompts: [
-        {label:"Show my avocado spend", tag:"COSTS", icon:ICONS.insights, run: () => this.ask("Show my avocado spend")},
-        {label:"Why is Blackrock down?", tag:"P&L", icon:ICONS.navDash, run: () => this.ask("Why is Blackrock down?")},
-        {label:"What needs reviewing?", tag:"WORK", icon:ICONS.approvals, run: () => this.ask("What needs reviewing?")},
-        {label:"Prepare tomorrow's bowls", tag:"PREP", icon:ICONS.work, run: () => this.ask("Prepare tomorrow's bowls")}
+        {label:FIN_SUGGESTED[0], tag:"COSTS", icon:ICONS.insights, run: () => this.ask(FIN_SUGGESTED[0])},
+        {label:FIN_SUGGESTED[1], tag:"INVOICES", icon:ICONS.approvals, run: () => this.ask(FIN_SUGGESTED[1])},
+        {label:FIN_SUGGESTED[2], tag:"SHOPS", icon:ICONS.navDash, run: () => this.ask(FIN_SUGGESTED[2])},
+        {label:FIN_SUGGESTED[3], tag:"PACK", icon:ICONS.records, run: () => this.ask(FIN_SUGGESTED[3])}
       ].map((p, i) => Object.assign(p, {
         rowStyle: "display:flex;align-items:center;gap:13px;width:100%;padding:10px 14px;background:none;border:0;"
           + (i ? "border-top:1px solid var(--border);" : "")
@@ -4300,14 +4332,15 @@ export default class PulseLogic extends DCLogic {
         + "max-width:" + (st.thread.length ? (st.chatRailPinned ? "760px" : "880px") : "600px") + ";"
         + "transition:max-width .38s var(--ease)",
       goSettings: () => this.go("Settings"),
-      isShaka: !!PAGE_TABS[page] && page !== "Settings" || page === "Settings",
+      isShaka: !!FIN_TABS[page] || page === "NotIncluded",
       page,
+      legacyFrom: st.page,
       themeList: THEMES,
       setTheme: (id) => this.setState({theme:id}),
       agentFocusId: activeAgent.id,
       demoBadge: "Demo data",
       w: st.w,
-      resetDemo: () => shaka.reset()
+      resetDemo: () => fin.reset()
     };
   }
 }

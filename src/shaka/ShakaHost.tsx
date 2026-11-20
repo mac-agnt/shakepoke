@@ -1,35 +1,29 @@
-/* Page switch for the Shaka Poké pages, plus the global drawer and toast. */
-import { useShaka } from "./store";
+/* Page switch for the Shaka Poké finance-first pages, plus the toast.
+   Retired pages from the earlier scope stay in the repo (src/shaka/pages) but
+   are not routed: PulseLogic resolves them to a retained area or NotIncluded. */
+import { useFin } from "./fin/store";
 import RecordDrawer from "./RecordDrawer";
-import Dashboard from "./pages/Dashboard";
-import Finance from "./pages/Finance";
-import Sales from "./pages/Sales";
-import Purchasing from "./pages/Purchasing";
-import Stock from "./pages/Stock";
-import Recipes from "./pages/Recipes";
-import Team from "./pages/Team";
-import Work from "./pages/Work";
-import Activity from "./pages/Activity";
-import Settings from "./pages/Settings";
+import Invoices from "./fin/pages/Invoices";
+import Ingredients from "./fin/pages/Ingredients";
+import Money from "./fin/pages/Money";
+import Pack from "./fin/pages/Pack";
+import Settings from "./fin/pages/Settings";
+import NotIncluded from "./fin/pages/NotIncluded";
 
 export function ShakaPage({ v }: { v: any }) {
   switch (v.page) {
-    case "Dashboard": return <Dashboard />;
-    case "Finance": return <Finance />;
-    case "Sales": return <Sales />;
-    case "Purchasing": return <Purchasing />;
-    case "Stock": return <Stock />;
-    case "Recipes": return <Recipes />;
-    case "Team": return <Team />;
-    case "Work": return <Work />;
-    case "Activity": return <Activity />;
+    case "Invoices": return <Invoices />;
+    case "Ingredients": return <Ingredients />;
+    case "Money": return <Money />;
+    case "Pack": return <Pack />;
     case "Settings": return <Settings themes={v.themeList} theme={v.theme} setTheme={v.setTheme} />;
+    case "NotIncluded": return <NotIncluded from={v.legacyFrom} />;
   }
   return null;
 }
 
 export function ShakaOverlays() {
-  const s = useShaka();
+  const s = useFin();
   return (
     <>
       <RecordDrawer />

@@ -1,8 +1,9 @@
-# Shaka Poké · Powered by Pulse (demo)
+# Shaka Poké · Powered by Pulse (finance-first demo)
 
-A frontend-only operating platform demo for Shaka Poké (David McParland), built on the Pulse v5 Harbour template.
-Every financial figure, employee, invoice and forecast is an illustrative demo assumption, not a claim about the client.
-No backend, live integrations, credentials or real financial actions.
+A frontend-only demo of the €21,500 + VAT finance-first phase one for Shaka Poké (David McParland):
+process bills, see where the money goes, understand ingredient spend and prepare an accountant-ready pack.
+Every figure is illustrative demo data, not a claim about the client. No backend, live integrations, OCR,
+credentials or real financial actions.
 
 ## Run it
 
@@ -17,16 +18,20 @@ npm run build
 
 | Area | Where |
 | --- | --- |
-| Shared dataset (orders, purchases, timesheets, invoices, recipes, stock) | `src/shaka/model.ts` |
-| Shared state, actions, selectors, activity log, Reset Demo | `src/shaka/store.ts` |
-| Pages: Dashboard, Finance, Sales, Purchasing, Stock, Recipes, Team, Work, Activity, Settings, Records › Tables | `src/shaka/pages/` |
-| One record drawer used everywhere | `src/shaka/RecordDrawer.tsx` |
-| Home chat answers (read shared state) | `src/shaka/answers.ts` |
-| Shell, Home chat, Agents, Records, Ontology (original Pulse views) | `src/views/` |
+| Seeded dataset: 24 October invoices, 18 ingredients, monthly sales and costs, pricing | `src/shaka/fin/data.ts` |
+| Shared state, actions, memoised selectors, CSV exports, Reset | `src/shaka/fin/store.ts` |
+| Six areas, top-bar tabs, hash routes, retired-page redirects | `src/shaka/fin/nav.ts` |
+| Pages: Invoices, Ingredient Costs, Money & Reports, Accountant Pack, Settings, Records › Tables | `src/shaka/fin/pages/` |
+| Home chat answers (deterministic, read shared state) | `src/shaka/fin/answers.ts` |
+| Shell, Home chat, Records, Ontology (original Pulse views) | `src/views/` |
 | Pulse state and behaviour | `src/logic/PulseLogic.js` |
-| Navigation, agents, ontology labels | `src/logic/data.js` |
+| Rail, ontology labels, files, contacts | `src/logic/data.js` |
 
-Read `CLAUDE.md` before customising: Agents stays under Home, Ontology stays first in Records, the Home centre stays clean.
+Pages from the earlier, larger scope (`src/shaka/pages/`, `src/shaka/store.ts`, `src/shaka/model.ts`) stay in the repo
+but are not routed. Visiting `#/dashboard`, `#/finance`, `#/sales`, `#/purchasing` or `#/activity` redirects to the nearest
+retained area; `#/stock`, `#/recipes`, `#/team`, `#/work` and `#/agents` show a short "not included in the initial rollout" page.
+
+Read `CLAUDE.md` before customising: Home first in the rail, Ontology first in Records, the Home centre stays clean.
 
 ## Updating from Claude Design
 

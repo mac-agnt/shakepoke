@@ -19,7 +19,7 @@ import NewRecordDialog from "./overlays/NewRecordDialog";
 import CommandPalette from "./overlays/CommandPalette";
 import BackgroundGallery from "./overlays/BackgroundGallery";
 import { ShakaPage, ShakaOverlays } from "../shaka/ShakaHost";
-import RecordsTables from "../shaka/pages/RecordsTables";
+import RecordsTables from "../shaka/fin/pages/RecordsData";
 import ShakaMark from "../shaka/ShakaMark";
 
 type Props = { v: any };
@@ -586,7 +586,7 @@ export default function AppShell({ v }: Props) {
           )}
           {v.isSettings && <ShakaPage v={v} />}
           {v.isDashboard && <ShakaPage v={v} />}
-          {(v.page === "Finance" || v.page === "Sales" || v.page === "Purchasing" || v.page === "Stock" || v.page === "Recipes" || v.page === "Team") && <ShakaPage v={v} />}
+          {(v.page === "Invoices" || v.page === "Ingredients" || v.page === "Money" || v.page === "Pack" || v.page === "NotIncluded") && <ShakaPage v={v} />}
           {v.isAgents && <Agents v={v} />}
         </div>
       </main>

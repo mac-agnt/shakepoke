@@ -5,8 +5,10 @@ When customising, follow these rules. They override anything a client brief impl
 
 ## Locked layout (never change)
 
-1. **Side rail order starts Home, Agents.** Agents always sits directly under Home.
+1. **Side rail starts with Home.** When a build includes Agents, it sits directly under Home.
    `PulseLogic.js` enforces this (`NAV` guard near the top). Don't remove the guard.
+   This Shaka Poké finance-first build has no Agents area (out of scope for phase one), so the rail is
+   Home, Invoices, Ingredient Costs, Money & Reports, Accountant Pack, Records, with Settings at the foot.
 2. **Records: Ontology is the first tab and is never removed.**
    Order is Ontology, Files, Contacts, then any client tabs. Records opens on Ontology.
    Keep `src/views/pages/RecordsOntology.tsx` and its layout exactly as it is: the graph, the panels, the interactions.
@@ -15,7 +17,7 @@ When customising, follow these rules. They override anything a client brief impl
 3. **Home centre column stays clean.** In `src/views/pages/Home.tsx` the centre holds only:
    the status pill, the greeting, one subline, the ask box and the chat thread.
    Do NOT add KPI tiles, stat grids, briefing cards, charts or lists there.
-   - Numbers and KPIs go on the **Dashboard** (`DashboardKpiBand.tsx`, `KPI_DEFS` in `data.js`).
+   - Numbers and KPIs go on **Money & Reports** (`src/shaka/fin/pages/Money.tsx`).
    - Briefings, inbox items and to-dos go in the **right widget rail** (`HomeWidgetRail.tsx`).
 
 ## Top bar tabs
@@ -41,4 +43,4 @@ That wipes the guards above. Don't run it on a customised copy.
 ## Before saying done
 
 - `npm run typecheck` passes.
-- Check Home, Dashboard and every Records tab in the browser: highlight on the right tab, Ontology first, Agents under Home, nothing extra in the Home centre.
+- Check Home, Invoices, Ingredient Costs, Money & Reports, Accountant Pack and every Records tab in the browser: highlight on the right tab, Ontology first, nothing extra in the Home centre.

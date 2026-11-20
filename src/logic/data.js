@@ -43,85 +43,74 @@ const ICONS = {
 
 /* Ontology stays first and is never removed (PulseLogic enforces this too). */
 const REC_SECTIONS = [
-  {id:"ontology", label:"Ontology", blurb:"How every record connects: suppliers, invoices, ingredients, recipes, orders, channels and settlements."},
-  {id:"files", label:"Files", blurb:"Supplier invoices, receipt photos, the recipe sheet and finance packs (demo documents)."},
-  {id:"contacts", label:"Contacts", blurb:"Sample staff and supplier contacts. Names other than David are fictional; emails are mock labels."},
-  {id:"tables", label:"Tables", blurb:"Every shared record type as a table, with the relationship paths the Ontology draws."}
+  {id:"ontology", label:"Ontology", blurb:"How the records connect: suppliers, invoices, invoice lines, ingredients, categories, sales and the accountant pack."},
+  {id:"files", label:"Files", blurb:"Supplier invoices, receipt photos, the costing sheet and exported packs (demo documents)."},
+  {id:"contacts", label:"Contacts", blurb:"The owner, the two shop managers and supplier contacts. Names other than David are fictional; emails are mock labels."},
+  {id:"tables", label:"Tables", blurb:"Every invoice, line, ingredient and monthly figure, plus the activity log."}
 ];
 
 const CONTACTS = [
   ["David McParland","Owner","david@shakapoke.ie (mock)","Shaka Poké","owner","#46C8F0"],
   ["Aoife Byrne","Baggot Street Manager","aoife@shakapoke.ie (mock)","Shaka Poké","staff","#A9E5FF"],
   ["Conor Walsh","Blackrock Manager","conor@shakapoke.ie (mock)","Shaka Poké","staff","#e6c78a"],
-  ["Sofia Costa","Prep Lead","sofia@shakapoke.ie (mock)","Shaka Poké","staff","#7fd8a4"],
-  ["Lucas Silva","Kitchen Team","lucas@shakapoke.ie (mock)","Shaka Poké","staff","#c8b4f0"],
-  ["Emma Kelly","Front of House","emma@shakapoke.ie (mock)","Shaka Poké","staff","#f07a9d"],
-  ["Niamh Doyle","Weekend Team","niamh@shakapoke.ie (mock)","Shaka Poké","staff","#e6c78a"],
-  ["Jack Murphy","Events Team","jack@shakapoke.ie (mock)","Shaka Poké","staff","#9fd6f0"],
   ["Orders desk","Supplier contact","orders@caterway (mock label)","Caterway","supplier","#c8b4f0"],
   ["Sales desk","Supplier contact","sales@harbourfresh (mock label)","Harbour Fresh Fish","supplier","#9fd6f0"],
-  ["Accounts","Supplier contact","accounts@greenbasket (mock label)","Green Basket Produce","supplier","#a8e0c0"]
+  ["Accounts","Supplier contact","accounts@greenbasket (mock label)","Green Basket Produce","supplier","#a8e0c0"],
+  ["Orders","Supplier contact","orders@liffeypoultry (mock label)","Liffey Poultry Co.","supplier","#f0c04b"]
 ];
 
 const FILE_TREE = [
   {type:"folder", id:"f-sup", name:"Supplier invoices", depth:0},
-  {type:"file", id:"fl-1", name:"INV-AVO-118, Green Basket Produce.pdf", depth:1, parent:"f-sup", indexed:true,
-   path:"Supplier invoices / Green Basket Produce", title:"INV-AVO-118, Green Basket Produce",
-   facts:[["TYPE","PDF · 1 page (demo)"],["RECEIVED","11 Nov 2026"],["INDEXED","Yes"],["OWNER","David McParland"]],
-   body:["One line: 100 avocados at €1.32, €132 before any demo tax. October deliveries were billed at €1.10.",
-     "The Ingredient Cost Agent raised CC-AVO-118 from this line. Approving it updates the November recipe valuation only."],
-   links:[["Green Basket Produce","supplier"],["Avocado","ingredient"],["CC-AVO-118","cost change"]]},
+  {type:"file", id:"fl-1", name:"INV-GBP-1047, Green Basket Produce.pdf", depth:1, parent:"f-sup", indexed:true,
+   path:"Supplier invoices / Green Basket Produce", title:"INV-GBP-1047, Green Basket Produce",
+   facts:[["TYPE","PDF · 1 page (demo)"],["DATED","28 Oct 2026"],["SHOP","Blackrock"],["STATUS","See Invoices"]],
+   body:["Blackrock produce delivery. The avocado line was read as 18 box; the printed line total of €237.60 fits 180 avocados at €1.32.",
+     "Approving the corrected line on the Invoices page adds it to Ingredient Costs, Money & Reports and the Accountant Pack."],
+   links:[["Green Basket Produce","supplier"],["Avocado","ingredient"],["Blackrock","shop"]]},
   {type:"file", id:"fl-2", name:"INV-HFF-2231, Harbour Fresh Fish.pdf", depth:1, parent:"f-sup", indexed:true,
    path:"Supplier invoices / Harbour Fresh Fish", title:"INV-HFF-2231, Harbour Fresh Fish",
-   facts:[["TYPE","PDF · 1 page (demo)"],["RECEIVED","11 Nov 2026"],["INDEXED","Yes"],["OWNER","David McParland"]],
-   body:["Salmon line extracted as 1.2 box; the delivery note says 12 kg. Held for review in FIN-112.",
-     "Correcting the quantity and unit, then marking reviewed, moves it into the ready count."],
-   links:[["Harbour Fresh Fish","supplier"],["Salmon","ingredient"],["FIN-112","invoice batch"]]},
-  {type:"folder", id:"f-rcp", name:"Recipes", depth:0},
-  {type:"file", id:"fl-3", name:"Bowl costing sheet (Excel import preview).xlsx", depth:1, parent:"f-rcp", indexed:false,
-   path:"Recipes / Costing", title:"Bowl costing sheet",
-   facts:[["TYPE","XLSX · demo preview"],["VERSION","1 April 2026"],["INDEXED","Mapped, not indexed"],["OWNER","David McParland"]],
-   body:["The spreadsheet that bowl costing lived in. Four recipes were mapped to ingredient units in the import preview.",
-     "Recipe versions in Pulse keep October valued at version 1, whatever changes later."],
-   links:[["Salmon bowl","recipe"],["Chicken bowl","recipe"]]},
-  {type:"folder", id:"f-fin", name:"Finance", depth:0},
-  {type:"file", id:"fl-4", name:"October P&L by location (demo).csv", depth:1, parent:"f-fin", indexed:true,
-   path:"Finance / Management packs", title:"October P&L by location",
-   facts:[["TYPE","CSV · generated"],["PERIOD","1 to 31 Oct 2026"],["INDEXED","Yes"],["OWNER","David McParland"]],
-   body:["Net sales €80,000, expenses €72,400, estimated operating profit €7,600 across Baggot Street, Blackrock and the dormant truck.",
-     "Estimated operating profit, not statutory net profit: no debt, tax or depreciation assumptions."],
-   links:[["Baggot Street","location"],["Blackrock","location"]]},
-  {type:"file", id:"fl-5", name:"Backfill April to September (demo).csv", depth:1, parent:"f-fin", indexed:false,
-   path:"Finance / Accountant pack", title:"Backfill April to September",
-   facts:[["TYPE","CSV · generated"],["DOCUMENTS","240"],["INDEXED","Not indexed"],["OWNER","David McParland"]],
-   body:["216 of 240 historical documents matched, 18 missing receipts and 6 ambiguous allocations.",
-     "Tax treatment stays draft until the accountant confirms it."],
-   links:[["Accountant pack","finance"]]},
-  {type:"folder", id:"f-ops", name:"Operations", depth:0},
-  {type:"file", id:"fl-6", name:"TRF-1113 transfer sheet.pdf", depth:1, parent:"f-ops", indexed:true,
-   path:"Operations / Transfers", title:"TRF-1113 transfer sheet",
-   facts:[["TYPE","PDF · generated"],["SCHEDULED","Fri 13 Nov 15:30"],["INDEXED","Yes"],["OWNER","Aoife Byrne"]],
-   body:["2 kg salmon and 3 kg pineapple salsa from Baggot Street to Blackrock, €66 carrying value.",
-     "Replaces the WhatsApp hand-off locally. Pulse does not read or send WhatsApp messages."],
-   links:[["Baggot Street","location"],["Blackrock","location"]]}
+   facts:[["TYPE","PDF · 1 page (demo)"],["DATED","26 Oct 2026"],["SHOP","Baggot Street"],["STATUS","See Invoices"]],
+   body:["Salmon quantity read as 1.2 box. The price matches per kilo, so the suggested correction is 52 kg.",
+     "Nothing counts until a person approves it."],
+   links:[["Harbour Fresh Fish","supplier"],["Salmon fillet","ingredient"]]},
+  {type:"folder", id:"f-rct", name:"Staff receipts", depth:0},
+  {type:"file", id:"fl-3", name:"Receipt photo, Tesco (Blackrock).jpg", depth:1, parent:"f-rct", indexed:true,
+   path:"Staff receipts / Blackrock", title:"Tesco receipt, 17 Oct",
+   facts:[["TYPE","Photo (demo)"],["CAPTURED BY","Blackrock manager"],["AMOUNT","€11.85"],["STATUS","See Invoices"]],
+   body:["A mixed basket of spinach and bin bags. The reviewer picks the category it is filed under."],
+   links:[["Blackrock","shop"],["Fresh produce","category"]]},
+  {type:"folder", id:"f-ref", name:"Reference", depth:0},
+  {type:"file", id:"fl-4", name:"Bowl costing sheet.xlsx", depth:1, parent:"f-ref", indexed:false,
+   path:"Reference / Costing", title:"Bowl costing sheet",
+   facts:[["TYPE","XLSX · uploaded reference"],["UPLOADED","2 Nov 2026"],["INDEXED","Reference only"],["OWNER","David McParland"]],
+   body:["David's existing Excel costing sheet, kept beside ingredient spend as a reference.",
+     "Phase one does not recalculate recipe costs or margins from it."],
+   links:[["Ingredient Costs","page"]]},
+  {type:"folder", id:"f-pack", name:"Accountant packs", depth:0},
+  {type:"file", id:"fl-5", name:"ShakaPoke-DEMO-2026-09-management-summary.csv", depth:1, parent:"f-pack", indexed:true,
+   path:"Accountant packs / September 2026", title:"September management summary",
+   facts:[["TYPE","CSV · generated (demo)"],["PERIOD","1 to 30 Sep 2026"],["INDEXED","Yes"],["OWNER","David McParland"]],
+   body:["Sales, approved supplier spend, labour and other expenses for both shops, with an indicative operating profit.",
+     "Indicative management P&L, not an accountant-verified statement."],
+   links:[["Baggot Street","shop"],["Blackrock","shop"]]}
 ];
 
 const ONTO_NODES = [
-  ["Ingredient","entity",500,300,1,"The unit of cost: every invoice line and every recipe line resolves to one."],
-  ["Supplier","entity",300,190,1,"Who sells it. Caterway, Harbour Fresh Fish, Green Basket Produce, Tesco top-ups."],
-  ["Recipe","entity",700,190,1,"Versioned bowls. October keeps its version when costs change."],
-  ["Staff","entity",250,430,1,"Sample team members, scoped to a site by role."],
-  ["Order","entity",690,430,1,"One deduplicated row per sale, with Square and original channel IDs."],
-  ["Settlement","ledger",850,320,0,"Marketplace payouts matched to bank receipts."],
-  ["Invoice","ledger",390,95,0,"Supplier documents in the inbox, extracted line by line."],
-  ["Invoice line","ledger",620,95,0,"Quantity, unit and price, mapped to an ingredient."],
-  ["Channel","module",860,470,0,"In-store, marketplaces, corporate and surplus."],
-  ["Transfer","entity",140,300,0,"Stock moved between sites; never a purchase or a sale."],
-  ["supplies","predicate",395,240,0,"Supplier → Ingredient."],
-  ["used in","predicate",605,240,0,"Ingredient → Recipe."],
-  ["works at","predicate",360,370,0,"Staff → Location."],
-  ["sold as","predicate",600,370,0,"Recipe → Order line."],
-  ["moves","predicate",140,372,0,"Transfer → stock items."]
+  ["Ingredient","entity",500,300,1,"The unit of spend: every food invoice line resolves to one of up to 20 tracked ingredients."],
+  ["Supplier","entity",300,190,1,"Who bills you: Harbour Fresh Fish, Green Basket Produce, Liffey Poultry, Caterway, plus staff receipts."],
+  ["Category","entity",700,190,1,"Expense category for every line, mapped to an accounting code for the export."],
+  ["Shop","entity",250,430,1,"Baggot Street or Blackrock. Every bill and every sale belongs to one."],
+  ["Square sale","entity",690,430,1,"Daily sales by shop from the Square CSV import."],
+  ["Monthly figure","ledger",850,320,0,"Labour and other expenses the owner enters each month."],
+  ["Invoice","ledger",390,95,0,"A supplier bill or staff receipt in the inbox, reviewed before it counts."],
+  ["Invoice line","ledger",620,95,0,"Quantity, unit and price, with a category and, for food, an ingredient."],
+  ["Accountant pack","module",860,470,0,"Monthly CSV exports for the accountant."],
+  ["Reviewer","entity",140,300,0,"The owner or a manager who approves a document."],
+  ["bills","predicate",395,240,0,"Supplier → Invoice."],
+  ["filed as","predicate",605,240,0,"Invoice line → Category."],
+  ["belongs to","predicate",360,370,0,"Invoice → Shop."],
+  ["summed into","predicate",600,370,0,"Sales and spend → Monthly figure."],
+  ["approves","predicate",140,372,0,"Reviewer → Invoice."]
 ];
 
 const ONTO_EDGES = [
@@ -341,19 +330,15 @@ const STREAM_DEFS = [
 ];
 
 
+/* Six primary areas for the finance-first phase one. Settings is the utility
+   entry at the foot of the rail. Retired pages are resolved in PulseLogic. */
 const NAV = [
   {label:"Home", icon:"helios", page:"Home"},
-  {label:"Agents", icon:"navAgents", page:"Agents"},
-  {label:"Dashboard", icon:"navDash", page:"Dashboard"},
-  {label:"Finance", icon:"navFinance", page:"Finance", dot:true},
-  {label:"Sales", icon:"navSales", page:"Sales"},
-  {label:"Purchasing", icon:"navPurchasing", page:"Purchasing"},
-  {label:"Stock", icon:"navStock", page:"Stock"},
-  {label:"Recipes", icon:"navRecipes", page:"Recipes"},
-  {label:"Team", icon:"navTeam", page:"Team"},
-  {label:"Work", icon:"navWork", page:"Work", dot:true},
-  {label:"Records", icon:"navRecords", page:"Records"},
-  {label:"Activity", icon:"pulseLine", page:"Activity"}
+  {label:"Invoices", icon:"navFinance", page:"Invoices", dot:true},
+  {label:"Ingredient Costs", icon:"navRecipes", page:"Ingredients"},
+  {label:"Money & Reports", icon:"navDash", page:"Money"},
+  {label:"Accountant Pack", icon:"records", page:"Pack"},
+  {label:"Records", icon:"navRecords", page:"Records"}
 ];
 
 /* Inbox items, keyed to the attention ids the shared store produces. */
@@ -605,7 +590,7 @@ const SCHEDULES = [
   {id:"s2", name:"Friday transfer", cadence:"Fridays · 07:30", next:"Fri 07:30", owner:"Stock Transfer Agent", on:true, day:4}
 ];
 
-const WIDGET_DEFS = [["kpi","October health"],["inbox","Needs your attention"],["work","Upcoming work"],["visits","Coming up"],["activity","Activity"]];
+const WIDGET_DEFS = [["inbox","Today’s briefing"],["kpi","October at a glance"],["activity","Activity"]];
 const WORK_WIDGETS = [
   {id:"queue", label:"Open tasks", value:"9", hint:"across the team", icon:"work", queue:"mine"},
   {id:"late", label:"Due Friday", value:"6", hint:"before the weekend", icon:"health", queue:"overdue"},
@@ -667,13 +652,13 @@ const FACE_TINTS = [
 
 const CLUSTERS = [
   ["Suppliers & invoices", "#46C8F0", 0.00, 0.62, 46],
-  ["Ingredients",          "#A9E5FF", 0.90, 0.70, 52],
-  ["Recipes",              "#7fd8a4", 1.75, 0.66, 58],
-  ["Orders",               "#f0c04b", 2.55, 0.72, 44],
-  ["Channels & settlements","#f0567f", 3.35, 0.60, 38],
-  ["Locations & stock",    "#5fe0a8", 4.15, 0.70, 40],
-  ["Staff & shifts",       "#f0803a", 4.95, 0.64, 30],
-  ["Transfers",            "#5f7cf0", 5.65, 0.72, 34]
+  ["Invoice lines",        "#A9E5FF", 0.90, 0.70, 52],
+  ["Ingredients",          "#7fd8a4", 1.75, 0.66, 58],
+  ["Expense categories",   "#f0c04b", 2.55, 0.72, 44],
+  ["Square sales",         "#f0567f", 3.35, 0.60, 38],
+  ["Shops",                "#5fe0a8", 4.15, 0.70, 40],
+  ["Labour & other costs", "#f0803a", 4.95, 0.64, 30],
+  ["Accountant exports",   "#5f7cf0", 5.65, 0.72, 34]
 ];
 
 
