@@ -1,9 +1,11 @@
 /* Settings: a utility, not a workstream. */
 import { useState } from "react";
-import { useFin, fin } from "../store";
+import { useFin, fin, monthSeries, counts, packProgress, ingredientRows } from "../store";
 import { LOCS } from "../data";
 import { finTab } from "../nav";
-import { Page, Card, Grid, Badge, Notice, Row, Btn, KV, Table } from "../../ui";
+import { Page, Card, Grid, Badge, Notice, Row, Btn, KV, Table, HBars } from "../../ui";
+import { Donut, Spark, Kpi, VIZ, kEur } from "../../viz";
+import { eur } from "../../format";
 
 type Theme = { id: string; label: string; group: string; bg: string; surface: string; ink: string; accent: string };
 
@@ -29,6 +31,14 @@ export default function Settings({ themes, theme, setTheme }: { themes: Theme[];
         { key: "n", label: "Person", w: "minmax(170px,1fr)", render: u => u.name },
         { key: "r", label: "Role", w: "minmax(160px,.9fr)", render: u => u.role },
         { key: "c", label: "Can", w: "minmax(260px,2fr)", render: u => <span style={{ whiteSpace: "normal" }}>{u.can}</span> }]} /></Card>
+      <Grid min={320}>
+        <Card title="Activity by person" sub="Logged events since onboarding, from Records › Activity.">
+          <HBars fmt={v => v + (v === 1 ? " event" : " events")} rows={[["David", "David"], ["Aoife (Baggot Street)", "Aoife"], ["Conor (Blackrock)", "Conor"]].map(([who, k], i) => ({ label: who, value: s.activity.filter(a => a.who.startsWith(k)).length, color: VIZ[i] }))} />
+        </Card>
+        <Card title="Seats" sub="Phase one covers the owner and two shop managers.">
+          <Donut size={120} fmt={v => String(v)} center={{ value: "3", label: "seats" }} rows={[{ label: "Owner", value: 1, color: VIZ[0] }, { label: "Shop managers", value: 2, color: VIZ[1] }]} />
+        </Card>
+      </Grid>
     </Page>
   );
   if (tab === "Systems") return (
@@ -37,6 +47,18 @@ export default function Settings({ themes, theme, setTheme }: { themes: Theme[];
         <Card key={x.name} title={x.name} extra={<Badge tone="neutral">{x.status}</Badge>} sub={x.purpose}>
           <KV rows={[["Data", x.data]]} />
         </Card>))}</Grid>
+      <Grid min={320}>
+        <Card title="How October documents arrived" sub="Invoice inbox, by source.">
+          <Donut size={128} fmt={v => String(v)} center={{ value: String(s.invoices.length), label: "documents" }} rows={[
+            { label: "Forwarded by email", value: s.invoices.filter(i => i.source.startsWith("Forwarded")).length, color: VIZ[0] },
+            { label: "Staff receipt photo", value: s.invoices.filter(i => i.kind === "receipt").length, color: VIZ[1] },
+            { label: "Paper scan", value: s.invoices.filter(i => i.source.startsWith("Paper")).length, color: VIZ[2] }]} />
+        </Card>
+        <Card title="Latest import per source" pad="14px">
+          <Table rowKey={r => r[0]} dense rows={[["Square CSV", "3 Nov 2026", "October sales, both shops"], ["Invoice inbox", "11 Nov 2026", "24 October documents"], ["Owner entry", "5 Nov 2026", "October labour and other costs"], ["Costing sheet", "30 Sep 2026", "Reference upload"]]}
+            cols={[{ key: "a", label: "Source", w: "minmax(120px,1fr)", render: r => r[0] }, { key: "b", label: "Last update", w: "110px", render: r => r[1] }, { key: "c", label: "What came in", w: "minmax(160px,1.4fr)", render: r => r[2] }]} />
+        </Card>
+      </Grid>
     </Page>
   );
   if (tab === "Experience") return (
@@ -60,12 +82,32 @@ export default function Settings({ themes, theme, setTheme }: { themes: Theme[];
     <Page period="Settings" title="Organisation" sub="Trading identity and the shops in phase one.">
       <Grid min={300}>
         <Card title="Identity"><KV rows={[["Trading name", "Shaka Poké"], ["Legal entity", "To confirm"], ["Owner", "David McParland"], ["Currency and timezone", "EUR · Europe/Dublin"], ["Accounting tool", "Xero (export destination)"]]} /></Card>
-        <Card title="Shops">
-          {LOCS.map(l => <div key={l.id} style={{ padding: "8px 0", borderTop: "1px solid var(--border)", fontSize: "13px" }}><Row gap={8}><span style={{ fontWeight: 600 }}>{l.name}</span><Badge>Phase one</Badge></Row></div>)}
+        <Card title="Shops" sub="Sales, April to October 2026.">
+          {LOCS.map((l, i) => { const ser = monthSeries(s, l.id); const last = ser[ser.length - 1].sales ?? 0; return (
+            <div key={l.id} style={{ display: "flex", alignItems: "center", gap: "14px", padding: "10px 0", borderTop: "1px solid var(--border)", fontSize: "13px" }}>
+              <div style={{ flex: "0 0 150px" }}><Row gap={8}><span style={{ fontWeight: 600 }}>{l.name}</span><Badge>Phase one</Badge></Row><div style={{ fontSize: "11.5px", color: "var(--faint)", marginTop: "3px" }}>{eur(last)} in October</div></div>
+              <div style={{ flex: 1, minWidth: 0 }}><Spark values={ser.map(x => x.sales)} color={VIZ[i]} h={36} /></div>
+              <span style={{ fontSize: "11px", color: "var(--faint)" }}>{kEur(Math.max(...ser.map(x => x.sales ?? 0)))} peak</span>
+            </div>); })}
           <div style={{ fontSize: "12px", color: "var(--faint)", marginTop: "10px" }}>The seasonal food truck is outside phase one.</div>
         </Card>
       </Grid>
+      <OrgGlance />
       <Notice tone="neutral" title="Illustrative demo data.">Every figure in this workspace is a demo assumption, not David's real sales, costs or supplier pricing.</Notice>
     </Page>
+  );
+}
+
+function OrgGlance() {
+  const s = useFin();
+  const all = monthSeries(s, "ALL");
+  const c = counts(s), p = packProgress(s);
+  return (
+    <Grid min={200}>
+      <Kpi label="Sales, both shops" value={kEur(all[all.length - 1].sales ?? 0)} sub="October, Square import" spark={all.map(x => x.sales)} onClick={() => fin.go("Money", "Trends")} />
+      <Kpi label="Documents in the inbox" value={String(c.total)} sub={c.reviewed + " reviewed, " + c.attention + " open"} onClick={() => fin.go("Invoices", "All invoices")} />
+      <Kpi label="Ingredients tracked" value={String(ingredientRows(s).length)} sub="Core list, up to 20 in phase one" onClick={() => fin.go("Ingredients", "Spend")} />
+      <Kpi label="Accountant pack" value={p.done + " of " + p.total} tone={p.done === p.total ? "ok" : undefined} sub="October checklist" onClick={() => fin.go("Pack", "Checklist")} />
+    </Grid>
   );
 }

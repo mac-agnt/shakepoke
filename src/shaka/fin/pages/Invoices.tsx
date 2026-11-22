@@ -6,7 +6,8 @@ import { useFin, fin, counts, spendTotals, correctedTotal, approvedLines } from 
 import { CATEGORIES, LOCS, SUPPLIERS, supplierName, locName, catName, invoiceTotal, lineTotal, type Invoice, type CatId, type LocId } from "../data";
 import { finTab } from "../nav";
 import { eur, eur2 } from "../../format";
-import { Page, Card, Table, Btn, Badge, Notice, Row, Stat, Grid, inputStyle, eyebrow, num, type Tone } from "../../ui";
+import { Page, Card, Table, Btn, Badge, Notice, Row, Stat, Grid, Columns, Legend, inputStyle, eyebrow, num, type Tone } from "../../ui";
+import { Donut, MonthHeat, StackBar, VIZ, kEur } from "../../viz";
 
 const ISSUE: Record<string, string> = { line: "Unclear line", location: "Shop not stated", category: "Pick a category", duplicate: "Possible duplicate" };
 export const statusBadge = (i: Invoice) => i.status === "approved" ? <Badge tone="ok">Reviewed</Badge> : i.status === "excluded" ? <Badge tone="neutral">Excluded duplicate</Badge> : <Badge tone="warn">{ISSUE[i.issue ?? "line"]}</Badge>;
@@ -34,9 +35,11 @@ export default function Invoices() {
         <Stat label="Reviewed" value={c.reviewed + " of " + c.total} sub="Counted in your reports" onClick={() => fin.setTab("Invoices", "All invoices")} />
         <Stat label="Need your attention" value={String(c.attention)} tone={c.attention ? "warn" : "ok"} sub={c.attention ? "Not counted until reviewed" : "Inbox clear"} onClick={() => fin.setTab("Invoices", "Needs review")} />
         <Stat label="Approved spend, October" value={eur(spendTotals(s).ALL)} sub="Both shops, reviewed lines only" onClick={() => fin.go("Money", "Overview")} />
+        <Stat label="Staff receipts" value={String(c.receipts)} tone={c.receiptsOpen ? "warn" : undefined} sub={c.receiptsOpen ? c.receiptsOpen + " waiting on a category" : "All filed"} onClick={() => fin.setTab("Invoices", "Staff receipts")} />
       </Grid>}
 
       {tab === "Suppliers" ? <Suppliers /> : <>
+      {!sel && <InboxVisuals />}
       <div className="shk-split" style={{ display: "grid", gridTemplateColumns: sel ? "minmax(0,1fr) minmax(0,1.2fr)" : "minmax(0,1fr)", gap: "14px", alignItems: "start" }}>
         <Card pad="14px" title={tab} sub={tab === "Needs review" ? c.attention ? c.attention + (c.attention === 1 ? " document" : " documents") + " could not be read with confidence. Each needs one decision." : "Every October document is reviewed." : tab === "Staff receipts" ? "Receipt photos from the shop managers' cards." : "Every October document in the inbox."}
           extra={<input aria-label="Search invoices" value={q} onChange={e => setQ(e.target.value)} placeholder="Search supplier, number, item" style={{ ...inputStyle, width: "220px", height: "32px" }} />}>
@@ -212,6 +215,24 @@ function Suppliers() {
         <Stat label="Largest supplier" value={top ? top.name : "None"} sub={top && total ? Math.round(top.approved / total * 100) + "% of approved spend" : ""} onClick={top ? () => setPick(top.id) : undefined} />
         <Stat label="Waiting on review" value={eur(rows.reduce((a, r) => a + r.waitingValue, 0))} tone={rows.some(r => r.waiting) ? "warn" : "ok"} sub={rows.filter(r => r.waiting).length + " suppliers affected"} onClick={() => fin.setTab("Invoices", "Needs review")} />
       </Grid>
+      {!cur && <Grid min={320}>
+        <Card title="Share of approved spend" sub="October, both shops. Click a supplier for detail.">
+          <Donut fmt={eur} center={{ value: kEur(total), label: "approved" }} rows={rows.filter(r => r.approved > 0).map((r, k) => ({ label: r.name, value: r.approved, color: VIZ[k % VIZ.length], onClick: () => setPick(r.id) }))} />
+        </Card>
+        <Card title="Where each supplier delivers" sub="Approved spend split by shop.">
+          <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+            {rows.filter(r => r.approved > 0).slice(0, 6).map(r => {
+              const by = (l: LocId) => lines.filter(x => x.inv.supplier === r.id && x.inv.loc === l).reduce((a, x) => a + lineTotal(x.line), 0);
+              return (
+                <div key={r.id}>
+                  <div style={{ display: "flex", fontSize: "12px", marginBottom: "5px" }}><span style={{ flex: 1, color: "var(--body)" }}>{r.name}</span><span style={{ ...num, color: "var(--ink)" }}>{eur(r.approved)}</span></div>
+                  <StackBar height={9} legend={false} rows={[{ label: "Baggot Street", value: by("BAG"), color: VIZ[0] }, { label: "Blackrock", value: by("BLK"), color: VIZ[1] }]} fmt={eur} />
+                </div>);
+            })}
+          </div>
+          <Legend items={[{ name: "Baggot Street", color: VIZ[0] }, { name: "Blackrock", color: VIZ[1] }]} />
+        </Card>
+      </Grid>}
       <div className="shk-split" style={{ display: "grid", gridTemplateColumns: cur ? "minmax(0,1fr) minmax(0,1fr)" : "minmax(0,1fr)", gap: "14px", alignItems: "start" }}>
         <Card pad="14px" title="Suppliers" sub="Approved spend counts reviewed lines only. Click a supplier for what you bought.">
           <Table<SupRow> rowKey={r => r.id} rows={rows} onRow={r => setPick(r.id === pick ? null : r.id)} dense cols={[
@@ -249,3 +270,30 @@ const KVRow = ({ k, v }: { k: string; v: string }) => (
     <span style={{ color: "var(--faint)" }}>{k}</span><span style={{ ...num, color: "var(--ink)", textAlign: "right" }}>{v}</span>
   </div>
 );
+
+/* Inbox overview: when documents arrived, where the inbox stands, spend by week. */
+function InboxVisuals() {
+  const s = useFin();
+  const c = counts(s);
+  const byDay: Record<number, number> = {};
+  s.invoices.forEach(i => { if (i.date.startsWith("2026-10")) { const d = +i.date.slice(8); byDay[d] = (byDay[d] ?? 0) + 1; } });
+  const weeks = [1, 8, 15, 22, 29];
+  const lines = approvedLines(s);
+  const wk = (start: number, l: LocId) => lines.filter(r => r.inv.loc === l && +r.inv.date.slice(8) >= start && +r.inv.date.slice(8) < start + 7).reduce((a, r) => a + lineTotal(r.line), 0);
+  return (
+    <Grid min={300}>
+      <Card title="Documents by day" sub="October, by invoice date. Hover a day for the count.">
+        <MonthHeat year={2026} month={10} values={byDay} fmt={v => v + (v === 1 ? " document" : " documents")} unit="documents" />
+      </Card>
+      <Card title="Inbox status" sub="Every October document.">
+        <Donut size={136} fmt={v => String(v)} center={{ value: Math.round((c.reviewed / Math.max(1, c.total)) * 100) + "%", label: "reviewed" }} rows={[
+          { label: "Reviewed", value: c.reviewed, color: "var(--ok)", onClick: () => fin.setTab("Invoices", "All invoices") },
+          { label: "Needs attention", value: c.attention, color: "var(--warn)", onClick: () => fin.setTab("Invoices", "Needs review") },
+          { label: "Excluded duplicates", value: c.excluded, color: VIZ[6] }]} />
+      </Card>
+      <Card title="Approved spend by week" sub="Reviewed lines, by invoice date.">
+        <Columns height={140} fmt={eur} series={[{ name: "Baggot Street", color: VIZ[0] }, { name: "Blackrock", color: VIZ[1] }]} data={weeks.map(w => ({ label: w + " Oct", values: [wk(w, "BAG"), wk(w, "BLK")] }))} />
+      </Card>
+    </Grid>
+  );
+}

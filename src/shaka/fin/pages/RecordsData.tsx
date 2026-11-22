@@ -6,7 +6,8 @@ import { useFin, fin, ingredientRows, approvedLines, monthRow, correctedTotal, t
 import { SUPPLIERS, MONTHS, LOCS, supplierName, locName, catName, invoiceTotal, lineTotal, type Invoice } from "../data";
 import { statusBadge } from "./Invoices";
 import { eur, eur2 } from "../../format";
-import { Page, Card, Table, Seg, Badge, inputStyle, Row, Grid, Stat } from "../../ui";
+import { Page, Card, Table, Seg, Badge, inputStyle, Row, Grid, Stat, Columns } from "../../ui";
+import { Kpi, Donut, StackBar, Coverage, VIZ, kEur, type Cover } from "../../viz";
 
 const KINDS = ["Invoices", "Invoice lines", "Ingredients", "Suppliers", "Monthly figures"] as const;
 type Kind = (typeof KINDS)[number];
@@ -23,6 +24,7 @@ export default function RecordsData() {
 
   return (
     <Page title="Tables" sub="Every record behind the pages, searchable. Click a row to open it where it lives." actions={<Badge tone="neutral">Demo data</Badge>}>
+      <TablesOverview />
       <Row>
         <Seg options={KINDS} value={kind} onChange={k => fin.setTab("RecordsData", k)} counts={counts} />
         <input aria-label="Search records" value={q} onChange={e => setQ(e.target.value)} placeholder="Search" style={{ ...inputStyle, width: "220px" }} />
@@ -56,6 +58,37 @@ export default function RecordsData() {
   );
 }
 
+function TablesOverview() {
+  const s = useFin();
+  const lines = approvedLines(s);
+  const value = lines.reduce((a, r) => a + lineTotal(r.line), 0);
+  const att = s.invoices.filter(i => i.status === "attention").length, exc = s.invoices.filter(i => i.status === "excluded").length;
+  const cell = (ym: string, loc: "BAG" | "BLK") => monthRow(s, ym, loc);
+  const cov = (pick: (r: ReturnType<typeof cell>) => number | null, live?: boolean) => MONTHS.map(m => {
+    const a = pick(cell(m.ym, "BAG")), b = pick(cell(m.ym, "BLK"));
+    const st: Cover = a === null || b === null ? "bad" : live && m.ym === "2026-10" && att ? "warn" : "ok";
+    return { state: st, note: st === "bad" ? "Missing" : st === "warn" ? "Provisional, " + att + " documents open" : "In" };
+  });
+  return (
+    <div className="shk-split" style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,1.25fr)", gap: "14px", alignItems: "stretch" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px" }}>
+        <Kpi label="Documents" value={String(s.invoices.length)} sub={att + " open · " + exc + " excluded"} />
+        <Kpi label="Approved lines" value={String(lines.length)} sub={kEur(value) + " in total"} />
+        <Card title="Document status" pad="14px 16px" style={{ gridColumn: "1 / -1" }}>
+          <StackBar rows={[{ label: "Reviewed", value: s.invoices.length - att - exc, color: "var(--ok)" }, { label: "Open", value: att, color: "var(--warn)" }, { label: "Excluded", value: exc, color: VIZ[6] }]} fmt={v => String(v)} />
+        </Card>
+      </div>
+      <Card title="Data coverage" sub="Which inputs exist for each month, for both shops. Hover a cell for detail.">
+        <Coverage cols={MONTHS.map(m => m.short)} rows={[
+          { label: "Square sales", cells: cov(r => r.sales) },
+          { label: "Supplier invoices", cells: cov(r => r.spend, true) },
+          { label: "Labour", cells: cov(r => r.labour) },
+          { label: "Other expenses", cells: cov(r => r.other) }]} />
+      </Card>
+    </div>
+  );
+}
+
 const WHO = ["Everyone", "You", "System"] as const;
 type Who = (typeof WHO)[number];
 
@@ -73,6 +106,7 @@ export function RecordsActivity() {
         <Stat label="Your actions" value={String(mine)} sub="Reviews, corrections, exports" onClick={() => fin.setTab("RecordsActivity", "You")} />
         <Stat label="System events" value={String(s.activity.length - mine)} sub="Imports and suggestions" onClick={() => fin.setTab("RecordsActivity", "System")} />
       </Grid>
+      <ActivityCharts />
       <Row>
         <Seg options={WHO} value={who} onChange={k => fin.setTab("RecordsActivity", k)} />
         <input aria-label="Search activity" value={q} onChange={e => setQ(e.target.value)} placeholder="Search" style={{ ...inputStyle, width: "220px" }} />
@@ -85,5 +119,32 @@ export function RecordsActivity() {
           { key: "r", label: "Document", w: "140px", render: a => a.ref ?? "" }]} />
       </Card>
     </Page>
+  );
+}
+
+const MON3 = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+/* Seeded timestamps look like "Wed 11 Nov, 07:10"; new ones come from the store's clock. */
+function actDate(ts: string): Date | null {
+  const m = ts.match(/(\d{1,2}) (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)/);
+  return m ? new Date(Date.UTC(2026, MON3.indexOf(m[2]), +m[1])) : null;
+}
+function ActivityCharts() {
+  const s = useFin();
+  const dated = s.activity.map(a => ({ a, d: actDate(a.ts) ?? new Date(Date.UTC(2026, 10, 12)) }));
+  const monday = (d: Date) => { const x = new Date(d); x.setUTCDate(x.getUTCDate() - ((x.getUTCDay() + 6) % 7)); return x; };
+  const keys = Array.from(new Set(dated.map(x => monday(x.d).getTime()))).sort((a, b) => a - b);
+  const weeks = keys.map(k => { const d = new Date(k); const w = dated.filter(x => monday(x.d).getTime() === k);
+    return { label: d.getUTCDate() + " " + MON3[d.getUTCMonth()], values: [w.filter(x => x.a.kind === "you").length, w.filter(x => x.a.kind === "system").length] }; });
+  const src = new Map<string, number>();
+  s.activity.forEach(a => { const k = a.who.replace(/ \(.*\)/, ""); src.set(k, (src.get(k) ?? 0) + 1); });
+  return (
+    <Grid min={320}>
+      <Card title="Events by week" sub="Week starting Monday.">
+        <Columns height={140} fmt={v => String(v)} data={weeks} series={[{ name: "Your actions", color: VIZ[0] }, { name: "System and staff", color: VIZ[1] }]} />
+      </Card>
+      <Card title="Where events come from">
+        <Donut size={130} fmt={v => String(v)} center={{ value: String(s.activity.length), label: "events" }} rows={Array.from(src.entries()).sort((a, b) => b[1] - a[1]).map(([label, value], k) => ({ label, value, color: VIZ[k % VIZ.length] }))} />
+      </Card>
+    </Grid>
   );
 }
