@@ -11,7 +11,7 @@ export default function NotIncluded({ from }: { from: string }) {
         <div style={{ fontSize: "13.5px", color: "var(--body)", lineHeight: 1.6 }}>{x.why}</div>
         <Row style={{ marginTop: "16px" }}>
           <Btn kind="primary" onClick={() => fin.go(x.nearest)}>Go to {PAGE_LABEL[x.nearest] ?? x.nearest}</Btn>
-          <Btn onClick={() => fin.go("Settings", "Scope & pricing")}>What phase one covers</Btn>
+          <Btn onClick={() => fin.go("Home")}>Back to Home</Btn>
         </Row>
       </Card>
     </Page>

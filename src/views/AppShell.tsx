@@ -19,7 +19,7 @@ import NewRecordDialog from "./overlays/NewRecordDialog";
 import CommandPalette from "./overlays/CommandPalette";
 import BackgroundGallery from "./overlays/BackgroundGallery";
 import { ShakaPage, ShakaOverlays } from "../shaka/ShakaHost";
-import RecordsTables from "../shaka/fin/pages/RecordsData";
+import RecordsTables, { RecordsActivity } from "../shaka/fin/pages/RecordsData";
 import ShakaMark from "../shaka/ShakaMark";
 
 type Props = { v: any };
@@ -63,6 +63,11 @@ export default function AppShell({ v }: Props) {
                 <div style={{"width":"20px","height":"1px","background":"var(--track)","margin":"7px 0"}} />
               </>
             )}
+            {item?.isGroup && (
+              <div style={{"padding":"18px 14px 6px","fontSize":"11px","fontWeight":"600","letterSpacing":".12em","color":"var(--faint)","whiteSpace":"nowrap"}}>
+                {txt(item?.label)}
+              </div>
+            )}
             {item?.isItem && (
               <>
                 <button className="ix3" data-rail={item?.railKey} onClick={item?.go} onPointerEnter={item?.enter} onPointerLeave={item?.leave} style={css(item?.style)}>
@@ -85,6 +90,11 @@ export default function AppShell({ v }: Props) {
                         {txt(item?.hint)}
                       </span>
                     </>
+                  )}
+                  {item?.count && (
+                    <span style={{"flex":"none","padding":"1px 7px","borderRadius":"999px","background":"var(--accent-soft)","fontFamily":"var(--mono)","fontSize":"10.5px","color":"var(--accent)"}}>
+                      {txt(item?.count)}
+                    </span>
                   )}
                 </button>
               </>
@@ -480,6 +490,7 @@ export default function AppShell({ v }: Props) {
           {v.rec?.isFiles && <RecordsFiles v={v} />}
           {v.rec?.isOntology && <RecordsOntology v={v} />}
           {v.rec?.isTables && <RecordsTables />}
+          {v.rec?.isActivityLog && <RecordsActivity />}
           {v.isActivity && <ShakaPage v={v} />}
           {v.act?.detailOpen && (
             <>

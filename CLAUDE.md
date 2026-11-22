@@ -20,9 +20,13 @@ When customising, follow these rules. They override anything a client brief impl
    - Numbers and KPIs go on **Money & Reports** (`src/shaka/fin/pages/Money.tsx`).
    - Briefings, inbox items and to-dos go in the **right widget rail** (`HomeWidgetRail.tsx`).
 
-## Top bar tabs
+## Rail sub-pages and top bar tabs
 
-Tabs come from `contextNav` in `PulseLogic.js`. Add as many as you like with any label length.
+In this build each area's sub-pages sit in the open side rail under a grey group label (`FIN_TABS` and
+`SUB_ICON` in `src/shaka/fin/nav.ts`, Records sections from `REC_SECTIONS`). Home, the five areas and Records
+show no top-bar tabs; only Settings keeps them. The collapsed rail shows one icon per area.
+
+Top-bar tabs come from `contextNav` in `PulseLogic.js`. Add as many as you like with any label length.
 The sliding highlight (`src/components/NavThumb.tsx`) measures the active tab, so it always sits on it.
 Don't go back to a fixed-width or index-based highlight.
 

@@ -46,7 +46,8 @@ const REC_SECTIONS = [
   {id:"ontology", label:"Ontology", blurb:"How the records connect: suppliers, invoices, invoice lines, ingredients, categories, sales and the accountant pack."},
   {id:"files", label:"Files", blurb:"Supplier invoices, receipt photos, the costing sheet and exported packs (demo documents)."},
   {id:"contacts", label:"Contacts", blurb:"The owner, the two shop managers and supplier contacts. Names other than David are fictional; emails are mock labels."},
-  {id:"tables", label:"Tables", blurb:"Every invoice, line, ingredient and monthly figure, plus the activity log."}
+  {id:"tables", label:"Tables", blurb:"Every invoice, line, ingredient and monthly figure, searchable."},
+  {id:"activity", label:"Activity", blurb:"Every review, correction and export, newest first."}
 ];
 
 const CONTACTS = [

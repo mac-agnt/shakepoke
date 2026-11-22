@@ -1,15 +1,24 @@
-/* The six primary areas and their top-bar tabs, plus where retired pages go. */
+/* The six primary areas and their sub-pages, plus where retired pages go.
+   Sub-pages show in the side rail, grouped under each area (FIN_TABS order). */
 import type { State } from "./store";
 
 export const FIN_TABS: Record<string, string[]> = {
-  Invoices: ["Needs review", "All invoices", "Staff receipts"],
+  Invoices: ["Needs review", "All invoices", "Staff receipts", "Suppliers"],
   Ingredients: ["Spend", "Price changes", "Recipe sheet"],
   Money: ["Overview", "Locations", "Trends"],
   Pack: ["Checklist", "Exports"],
-  Settings: ["Organisation", "Users", "Systems", "Scope & pricing", "Experience"],
+  Settings: ["Organisation", "Users", "Systems", "Experience"],
 };
 export const PAGE_LABEL: Record<string, string> = {
   Home: "Home", Invoices: "Invoices", Ingredients: "Ingredient Costs", Money: "Money & Reports", Pack: "Accountant Pack", Records: "Records", Settings: "Settings",
+};
+/* Rail icon per sub-page (keys into ICONS in src/logic/data.js). */
+export const SUB_ICON: Record<string, string> = {
+  "Needs review": "inbox", "All invoices": "navFinance", "Staff receipts": "records", "Suppliers": "orgs",
+  "Spend": "navPurchasing", "Price changes": "navSales", "Recipe sheet": "navRecipes",
+  "Overview": "navDash", "Locations": "locations", "Trends": "insights",
+  "Checklist": "approvals", "Exports": "autos",
+  ontology: "graph", files: "files", contacts: "people", tables: "navRecords", activity: "navActivity",
 };
 export const finTab = (s: State, page: string) => s.ui.tabs[page] ?? (FIN_TABS[page] ?? [""])[0];
 
@@ -21,7 +30,7 @@ export const LEGACY_REDIRECT: Record<string, { page: string; tab?: string; rec?:
   Finance: { page: "Invoices", tab: "Needs review" },
   Sales: { page: "Money", tab: "Overview" },
   Purchasing: { page: "Ingredients", tab: "Spend" },
-  Activity: { page: "Records", rec: "tables" },
+  Activity: { page: "Records", rec: "activity" },
 };
 export const NOT_INCLUDED: Record<string, { label: string; why: string; nearest: string }> = {
   Stock: { label: "Stock", why: "Stock levels, transfers, waste and prep planning are run well by the shop managers today, so they are not part of phase one.", nearest: "Ingredients" },

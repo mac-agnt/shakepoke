@@ -18,10 +18,10 @@ npm run build
 
 | Area | Where |
 | --- | --- |
-| Seeded dataset: 24 October invoices, 18 ingredients, monthly sales and costs, pricing | `src/shaka/fin/data.ts` |
+| Seeded dataset: 24 October invoices, 18 ingredients, monthly sales and costs | `src/shaka/fin/data.ts` |
 | Shared state, actions, memoised selectors, CSV exports, Reset | `src/shaka/fin/store.ts` |
-| Six areas, top-bar tabs, hash routes, retired-page redirects | `src/shaka/fin/nav.ts` |
-| Pages: Invoices, Ingredient Costs, Money & Reports, Accountant Pack, Settings, Records › Tables | `src/shaka/fin/pages/` |
+| Six areas, rail sub-pages, hash routes, retired-page redirects | `src/shaka/fin/nav.ts` |
+| Pages: Invoices, Ingredient Costs, Money & Reports, Accountant Pack, Settings, Records › Tables and Activity | `src/shaka/fin/pages/` |
 | Home chat answers (deterministic, read shared state) | `src/shaka/fin/answers.ts` |
 | Shell, Home chat, Records, Ontology (original Pulse views) | `src/views/` |
 | Pulse state and behaviour | `src/logic/PulseLogic.js` |

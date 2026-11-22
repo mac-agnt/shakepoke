@@ -31,6 +31,20 @@ const ACT_SEED: Activity[] = [
   { id: "A3", ts: "Thu 5 Nov, 18:40", who: "David", kind: "you", text: "Entered October labour and other expenses for Baggot Street and Blackrock." },
   { id: "A2", ts: "Wed 4 Nov, 09:15", who: "Invoice inbox", kind: "system", text: "24 October documents received. 19 matched known supplier formats and were reviewed." },
   { id: "A1", ts: "Tue 3 Nov, 07:00", who: "Square CSV import", kind: "system", text: "October sales imported for both shops from the Square export (demo import)." },
+  { id: "A0n", ts: "Thu 29 Oct, 08:05", who: "Invoice inbox", kind: "system", text: "Avocado price change flagged: Green Basket Produce now €1.32 each, up from €1.10 in September.", ref: "INV-GBP-1046" },
+  { id: "A0m", ts: "Wed 28 Oct, 16:22", who: "Invoice inbox", kind: "system", text: "INV-GBP-1047 received by email. Avocado line read as 18 box; held for a person.", ref: "INV-GBP-1047" },
+  { id: "A0l", ts: "Mon 26 Oct, 11:48", who: "Invoice inbox", kind: "system", text: "INV-HFF-2231 received. Salmon quantity read as 1.2 box; held for a person.", ref: "INV-HFF-2231" },
+  { id: "A0k", ts: "Thu 22 Oct, 14:30", who: "Aoife (Baggot Street)", kind: "system", text: "Uploaded a paper copy of INV-GBP-1039. Matched against the emailed original as a possible duplicate.", ref: "INV-GBP-1039B" },
+  { id: "A0j", ts: "Wed 21 Oct, 17:02", who: "Conor (Blackrock)", kind: "system", text: "Captured a Woodies receipt photo for small repairs.", ref: "RCT-WOO-0102" },
+  { id: "A0i", ts: "Sat 17 Oct, 12:41", who: "Conor (Blackrock)", kind: "system", text: "Captured a Tesco receipt photo. Category not clear from the items.", ref: "RCT-TES-0419" },
+  { id: "A0h", ts: "Sat 10 Oct, 10:15", who: "Aoife (Baggot Street)", kind: "system", text: "Captured a Lidl receipt photo for top-up produce.", ref: "RCT-LID-0388" },
+  { id: "A0g", ts: "Fri 9 Oct, 09:20", who: "Invoice inbox", kind: "system", text: "INV-CAT-7781 received with no delivery address; shop left blank for a person.", ref: "INV-CAT-7781" },
+  { id: "A0f", ts: "Wed 7 Oct, 15:55", who: "David", kind: "you", text: "Exported the September accountant pack: reviewed invoices, expense categories and management summary (CSV)." },
+  { id: "A0e", ts: "Mon 5 Oct, 18:10", who: "David", kind: "you", text: "Entered September labour and other expenses for both shops." },
+  { id: "A0d", ts: "Fri 2 Oct, 07:00", who: "Square CSV import", kind: "system", text: "September sales imported for both shops (demo import)." },
+  { id: "A0c", ts: "Wed 30 Sep, 16:40", who: "David", kind: "you", text: "Uploaded the bowl costing sheet as a reference file." },
+  { id: "A0b", ts: "Tue 29 Sep, 11:00", who: "Onboarding", kind: "system", text: "Imported 90 days of supplier invoices to set September ingredient prices for 18 ingredients." },
+  { id: "A0a", ts: "Mon 28 Sep, 10:30", who: "Onboarding", kind: "system", text: "Workspace set up for Baggot Street and Blackrock. Owner plus two shop managers invited." },
 ];
 
 const clone = <X,>(x: X): X => JSON.parse(JSON.stringify(x));

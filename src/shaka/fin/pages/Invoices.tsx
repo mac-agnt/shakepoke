@@ -2,8 +2,8 @@
    review panel. Approving here updates Ingredient Costs, Money & Reports, the
    Accountant Pack and the Home answers through the shared store. */
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { useFin, fin, counts, spendTotals, correctedTotal } from "../store";
-import { CATEGORIES, LOCS, supplierName, locName, catName, invoiceTotal, lineTotal, type Invoice, type CatId, type LocId } from "../data";
+import { useFin, fin, counts, spendTotals, correctedTotal, approvedLines } from "../store";
+import { CATEGORIES, LOCS, SUPPLIERS, supplierName, locName, catName, invoiceTotal, lineTotal, type Invoice, type CatId, type LocId } from "../data";
 import { finTab } from "../nav";
 import { eur, eur2 } from "../../format";
 import { Page, Card, Table, Btn, Badge, Notice, Row, Stat, Grid, inputStyle, eyebrow, num, type Tone } from "../../ui";
@@ -30,12 +30,13 @@ export default function Invoices() {
     <Page period="October 2026 · Illustrative demo data" title="Invoices"
       sub="Supplier bills and staff receipts land in one inbox. Field suggestions are checked by a person before anything reaches your reports."
       actions={<><Badge tone="neutral">Demo data</Badge><Btn kind="primary" onClick={() => fin.openCapture(true)}>Capture invoice</Btn></>}>
-      <Grid min={190}>
+      {tab !== "Suppliers" && <Grid min={190}>
         <Stat label="Reviewed" value={c.reviewed + " of " + c.total} sub="Counted in your reports" onClick={() => fin.setTab("Invoices", "All invoices")} />
         <Stat label="Need your attention" value={String(c.attention)} tone={c.attention ? "warn" : "ok"} sub={c.attention ? "Not counted until reviewed" : "Inbox clear"} onClick={() => fin.setTab("Invoices", "Needs review")} />
         <Stat label="Approved spend, October" value={eur(spendTotals(s).ALL)} sub="Both shops, reviewed lines only" onClick={() => fin.go("Money", "Overview")} />
-      </Grid>
+      </Grid>}
 
+      {tab === "Suppliers" ? <Suppliers /> : <>
       <div className="shk-split" style={{ display: "grid", gridTemplateColumns: sel ? "minmax(0,1fr) minmax(0,1.2fr)" : "minmax(0,1fr)", gap: "14px", alignItems: "start" }}>
         <Card pad="14px" title={tab} sub={tab === "Needs review" ? c.attention ? c.attention + (c.attention === 1 ? " document" : " documents") + " could not be read with confidence. Each needs one decision." : "Every October document is reviewed." : tab === "Staff receipts" ? "Receipt photos from the shop managers' cards." : "Every October document in the inbox."}
           extra={<input aria-label="Search invoices" value={q} onChange={e => setQ(e.target.value)} placeholder="Search supplier, number, item" style={{ ...inputStyle, width: "220px", height: "32px" }} />}>
@@ -51,6 +52,7 @@ export default function Invoices() {
         </Card>
         {sel && <Detail inv={sel} />}
       </div>
+      </>}
       {s.ui.capture && <Capture />}
     </Page>
   );
@@ -183,3 +185,67 @@ function Capture() {
     </div>
   );
 }
+
+/* Invoices › Suppliers: who you buy from, built from the same invoices. */
+type SupRow = { id: string; name: string; note: string; docs: number; approved: number; waiting: number; waitingValue: number; last: string; locs: string; items: { desc: string; qty: number; unit: string; spend: number }[] };
+function Suppliers() {
+  const s = useFin();
+  const [pick, setPick] = useState<string | null>(null);
+  const lines = approvedLines(s);
+  const rows: SupRow[] = SUPPLIERS.map(x => {
+    const docs = s.invoices.filter(i => i.supplier === x.id);
+    const open = docs.filter(i => i.status === "attention");
+    const mine = lines.filter(r => r.inv.supplier === x.id);
+    const items = new Map<string, { desc: string; qty: number; unit: string; spend: number }>();
+    mine.forEach(r => { const k = r.line.desc; const it = items.get(k) ?? { desc: k, qty: 0, unit: r.line.unit, spend: 0 }; it.qty += r.line.qty; it.spend += lineTotal(r.line); items.set(k, it); });
+    const locs = Array.from(new Set(docs.map(i => i.loc).filter((l): l is LocId => !!l))).map(locName).join(", ");
+    return { id: x.id, name: x.name, note: x.note, docs: docs.length, approved: mine.reduce((a, r) => a + lineTotal(r.line), 0), waiting: open.length, waitingValue: open.reduce((a, i) => a + correctedTotal(i), 0),
+      last: docs.map(i => i.date).sort().slice(-1)[0] ?? "", locs: locs || "Not stated", items: Array.from(items.values()).sort((a, b) => b.spend - a.spend) };
+  }).filter(r => r.docs > 0).sort((a, b) => b.approved - a.approved);
+  const total = rows.reduce((a, r) => a + r.approved, 0);
+  const top = rows[0];
+  const cur = rows.find(r => r.id === pick) ?? null;
+  return (
+    <>
+      <Grid min={190}>
+        <Stat label="Active suppliers, October" value={String(rows.length)} sub="Bills and staff receipts" />
+        <Stat label="Largest supplier" value={top ? top.name : "None"} sub={top && total ? Math.round(top.approved / total * 100) + "% of approved spend" : ""} onClick={top ? () => setPick(top.id) : undefined} />
+        <Stat label="Waiting on review" value={eur(rows.reduce((a, r) => a + r.waitingValue, 0))} tone={rows.some(r => r.waiting) ? "warn" : "ok"} sub={rows.filter(r => r.waiting).length + " suppliers affected"} onClick={() => fin.setTab("Invoices", "Needs review")} />
+      </Grid>
+      <div className="shk-split" style={{ display: "grid", gridTemplateColumns: cur ? "minmax(0,1fr) minmax(0,1fr)" : "minmax(0,1fr)", gap: "14px", alignItems: "start" }}>
+        <Card pad="14px" title="Suppliers" sub="Approved spend counts reviewed lines only. Click a supplier for what you bought.">
+          <Table<SupRow> rowKey={r => r.id} rows={rows} onRow={r => setPick(r.id === pick ? null : r.id)} dense cols={[
+            { key: "n", label: "Supplier", w: "minmax(160px,1.4fr)", render: r => <span style={{ color: r.id === pick ? "var(--accent)" : "var(--ink)", fontWeight: r.id === pick ? 600 : 500 }}>{r.name}</span> },
+            ...(cur ? [] : [{ key: "d", label: "Documents", w: "100px", align: "right" as const, render: (r: SupRow) => String(r.docs) }, { key: "l", label: "Shops", w: "minmax(130px,1fr)", render: (r: SupRow) => r.locs }]),
+            { key: "a", label: "Approved spend", w: "130px", align: "right", render: r => eur2(r.approved) },
+            { key: "w", label: "Status", w: "140px", render: r => r.waiting ? <Badge tone="warn">{r.waiting + " to review"}</Badge> : <Badge tone="ok">Up to date</Badge> },
+          ]} />
+        </Card>
+        {cur && (
+          <Card title={cur.name} sub={cur.note} extra={<Btn small kind="quiet" onClick={() => setPick(null)}>Close</Btn>}>
+            <KVRow k="Documents in October" v={String(cur.docs)} />
+            <KVRow k="Last document" v={cur.last ? dLabel(cur.last) : "None"} />
+            <KVRow k="Delivers to" v={cur.locs} />
+            <KVRow k="Approved spend" v={eur2(cur.approved)} />
+            <div style={{ ...eyebrow, marginTop: "16px", marginBottom: "6px" }}>What you bought</div>
+            {cur.items.length ? cur.items.slice(0, 8).map(it => (
+              <div key={it.desc} style={{ display: "flex", gap: "10px", padding: "7px 0", borderTop: "1px solid var(--border)", fontSize: "12.5px" }}>
+                <span style={{ flex: 1, minWidth: 0, color: "var(--body)" }}>{it.desc}</span>
+                <span style={{ ...num, color: "var(--faint)" }}>{it.qty.toLocaleString("en-IE") + " " + it.unit}</span>
+                <span style={{ ...num, width: "84px", textAlign: "right" }}>{eur2(it.spend)}</span>
+              </div>)) : <div style={{ fontSize: "12.5px", color: "var(--faint)" }}>Nothing approved yet.</div>}
+            <Row style={{ marginTop: "14px" }}>
+              <Btn onClick={() => fin.setTab("Invoices", "All invoices")}>See all invoices</Btn>
+              {cur.waiting > 0 && <Btn kind="primary" onClick={() => fin.setTab("Invoices", "Needs review")}>Review {cur.waiting}</Btn>}
+            </Row>
+          </Card>
+        )}
+      </div>
+    </>
+  );
+}
+const KVRow = ({ k, v }: { k: string; v: string }) => (
+  <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", padding: "6px 0", fontSize: "12.5px" }}>
+    <span style={{ color: "var(--faint)" }}>{k}</span><span style={{ ...num, color: "var(--ink)", textAlign: "right" }}>{v}</span>
+  </div>
+);

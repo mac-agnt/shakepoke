@@ -1,10 +1,8 @@
-/* Settings: a utility, not a workstream. Includes the optional commercial
-   information screen (Scope & pricing) for the owner presentation. */
+/* Settings: a utility, not a workstream. */
 import { useState } from "react";
 import { useFin, fin } from "../store";
-import { OFFER, monthlyPayment, LOCS } from "../data";
+import { LOCS } from "../data";
 import { finTab } from "../nav";
-import { eur, eur2 } from "../../format";
 import { Page, Card, Grid, Badge, Notice, Row, Btn, KV, Table } from "../../ui";
 
 type Theme = { id: string; label: string; group: string; bg: string; surface: string; ink: string; accent: string };
@@ -20,31 +18,6 @@ const USERS = [
   { name: "Baggot Street manager", role: "Manager (demo identity)", can: "Capture receipts, view their shop's spend" },
   { name: "Blackrock manager", role: "Manager (demo identity)", can: "Capture receipts, view their shop's spend" },
 ];
-const IN_SCOPE = [
-  "Two permanent shops: Baggot Street and Blackrock",
-  "One Square sales ingestion path (read-only feed if permitted, otherwise CSV import)",
-  "One supplier invoice inbox with field suggestions for selected recurring supplier formats and human review of uncertain lines",
-  "Ingredient spend for a curated list of up to 20 commonly purchased ingredients, from approved invoice lines",
-  "Basic finance categories and location reporting, with gaps clearly flagged",
-  "Accountant exports as Xero-compatible CSV, subject to field mapping",
-  "Limited history: Square exports back to 1 April 2026 and up to 150 invoice documents from the last 90 days",
-  "Owner plus up to two managers, with simple review and approval permissions",
-  "Two planned review cycles and one handover session",
-  "Built on the existing Pulse interface and components",
-  "A read-only Home assistant that explains figures; it never changes them",
-];
-const OUT_SCOPE = [
-  "Stock levels, reordering, purchase orders, transfers, waste and prep planning",
-  "Recipe costing, live bowl margins, portions, yields and inventory-based COGS",
-  "Rostering, payroll and staff payments",
-  "Marketplace APIs, settlement reconciliation and delivery integrations",
-  "Food truck, corporate events and a third site",
-  "Autonomous agents, WhatsApp, automated decisions and multi-step approvals",
-  "Forecasting, a mobile app, POS replacement and bank reconciliation",
-  "Live Xero sync, payments, statutory accounts, VAT filing or guaranteed savings",
-  "Additional historical invoice matching (a separately scoped change)",
-];
-
 export default function Settings({ themes, theme, setTheme }: { themes: Theme[]; theme: string; setTheme: (id: string) => void }) {
   const s = useFin();
   const tab = finTab(s, "Settings");
@@ -66,7 +39,6 @@ export default function Settings({ themes, theme, setTheme }: { themes: Theme[];
         </Card>))}</Grid>
     </Page>
   );
-  if (tab === "Scope & pricing") return <Commercial />;
   if (tab === "Experience") return (
     <Page period="Settings" title="Experience" sub="Theme, motion and demo controls.">
       <Card title="Theme">
@@ -94,25 +66,6 @@ export default function Settings({ themes, theme, setTheme }: { themes: Theme[];
         </Card>
       </Grid>
       <Notice tone="neutral" title="Illustrative demo data.">Every figure in this workspace is a demo assumption, not David's real sales, costs or supplier pricing.</Notice>
-    </Page>
-  );
-}
-
-function Commercial() {
-  const ex = monthlyPayment(OFFER.price), inc = monthlyPayment(Math.round(OFFER.price * (1 + OFFER.vatRate)));
-  return (
-    <Page period="Optional commercial information · for the owner presentation" title="Scope & pricing" sub="What the proposed implementation covers, and what it does not. The production build is subject to an approved PRD.">
-      <Grid min={260}>
-        <Card title="Proposed implementation"><div style={{ fontSize: "28px", fontWeight: 600, letterSpacing: "-.7px" }}>{eur(OFFER.price)} <span style={{ fontSize: "14px", fontWeight: 500, color: "var(--dim)" }}>+ VAT</span></div><div style={{ fontSize: "12px", color: "var(--faint)", marginTop: "6px" }}>Fixed price for the phase-one scope below.</div></Card>
-        <Card title="Financing illustration" sub={OFFER.months + " months at " + (OFFER.apr * 100).toFixed(1) + "% a year"}>
-          <KV rows={[["If VAT is financed", eur2(inc) + " a month"], ["Ex-VAT amount only", eur2(ex) + " a month"], ["Target", "Below " + eur(OFFER.cap) + " a month"]]} />
-          <div style={{ fontSize: "11.5px", color: "var(--faint)", marginTop: "10px", lineHeight: 1.5 }}>Illustrative only. Subject to a lender quotation and to confirmation that VAT can be financed.</div>
-        </Card>
-      </Grid>
-      <Grid min={340}>
-        <Card title="Included in phase one">{IN_SCOPE.map(x => <div key={x} style={{ fontSize: "12.5px", color: "var(--body)", padding: "7px 0", borderTop: "1px solid var(--border)", lineHeight: 1.5 }}>{x}</div>)}</Card>
-        <Card title="Not included">{OUT_SCOPE.map(x => <div key={x} style={{ fontSize: "12.5px", color: "var(--dim)", padding: "7px 0", borderTop: "1px solid var(--border)", lineHeight: 1.5 }}>{x}</div>)}</Card>
-      </Grid>
     </Page>
   );
 }

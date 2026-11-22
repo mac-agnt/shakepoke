@@ -70,7 +70,7 @@ import { getState as shakaState, subscribe as shakaSubscribe, bindNavigator, act
 import { PAGE_TABS, tabOf as shakaTab } from "../shaka/nav";
 import { shakaAnswer } from "../shaka/answers";
 import { getFin, subscribeFin, bindFinNavigator, fin, brief as finBrief, counts as finCounts, packProgress as finPack, monthRow as finMonth, spendTotals as finSpend, searchFin } from "../shaka/fin/store";
-import { FIN_TABS, finTab, LEGACY_REDIRECT, NOT_INCLUDED, SLUG, pageFromSlug, PAGE_LABEL } from "../shaka/fin/nav";
+import { FIN_TABS, finTab, LEGACY_REDIRECT, NOT_INCLUDED, SLUG, pageFromSlug, PAGE_LABEL, SUB_ICON } from "../shaka/fin/nav";
 import { finAnswer, SUGGESTED as FIN_SUGGESTED } from "../shaka/fin/answers";
 import { PEOPLE as SHAKA_PEOPLE, CORPORATE as SHAKA_CORP } from "../shaka/model";
 
@@ -1270,6 +1270,8 @@ export default class PulseLogic extends DCLogic {
     const n = nav.getBoundingClientRect(), b = btn.getBoundingClientRect();
     const next = {t: Math.round(b.top - n.top + nav.scrollTop), l: Math.round(b.left - n.left), w: Math.round(b.width), h: Math.round(b.height)};
     if (!prev || prev.t !== next.t || prev.l !== next.l || prev.w !== next.w || prev.h !== next.h){
+      // Keep the active rail item in view when the rail is taller than the window.
+      if (b.top < n.top + 60 || b.bottom > n.bottom - 180) nav.scrollTo({top: Math.max(0, next.t - 120), behavior: "smooth"});
       this.setState({railThumb: next});
       if (!this._railLive){ this._railLive = true; setTimeout(() => this.setState({railThumbLive:true}), 60); }
     }
@@ -1455,7 +1457,7 @@ export default class PulseLogic extends DCLogic {
         + "transform:translateX(" + (hov && !act ? "3px" : "0") + ");"
         + "transition:transform .5s cubic-bezier(.22,1.2,.36,1),font-weight .2s var(--ease)"
       : "display:none";
-    const nav = NAV.map((n, idx) => n.divider
+    const areaNav = NAV.map((n, idx) => n.divider
       ? {isDivider:true, isItem:false}
       : {isItem:true, isDivider:false, label:n.label, hint: railOpen ? (n.hint || "") : "", d:ICONS[n.icon],
          dot: n.dot === true && finOpen > 0,
@@ -1472,6 +1474,35 @@ export default class PulseLogic extends DCLogic {
          enter: (e) => { if (!railOpen) this.hover(idx, n.label, n.hint || "", e); else this.setState({railHov:idx}); },
          leave: () => { if (this.state.railHov === idx) this.setState({railHov:null}); this.unhover(idx); },
          go: () => this.go(n.page)});
+
+    /* Open rail: each area becomes a quiet group label with its sub-pages under it,
+       so the top bar no longer carries tabs. Collapsed rail keeps one icon per area. */
+    const subCount = {"Needs review": finOpen, "Checklist": finPack(fs).total - finPack(fs).done};
+    const subItem = (key, label, icon, active, go, count) => {
+      const hov = st.railHov === key;
+      return {isItem:true, isSub:true, isDivider:false, label, d:ICONS[icon] || ICONS.records, count: count ? String(count) : "",
+        active, railKey: active ? "active" : "idle",
+        inlineStyle: "flex:1;min-width:0;font-size:13px;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"
+          + "font-weight:" + (active ? "600" : "500") + ";color:" + (active ? "var(--ink)" : "var(--dim)") + ";"
+          + "transform:translateX(" + (hov && !active ? "3px" : "0") + ");transition:transform .5s cubic-bezier(.22,1.2,.36,1),color .2s var(--ease)",
+        glyphStyle: glyphStyle(active, hov) + ";color:var(--accent)",
+        style: railStyle(active).replace("height:42px", "height:36px").replace("gap:13px", "gap:12px") + ";font-size:13px",
+        enter: () => this.setState({railHov:key}),
+        leave: () => { if (this.state.railHov === key) this.setState({railHov:null}); },
+        go};
+    };
+    const groupHead = (label) => ({isGroup:true, label:label.toUpperCase()});
+    const nav = !railOpen ? areaNav : NAV.flatMap((n, idx) => {
+      if (n.divider) return [];
+      if (FIN_TABS[n.page]) {
+        const cur = finTab(fs, n.page);
+        return [groupHead(n.label)].concat(FIN_TABS[n.page].map(tb =>
+          subItem(n.page + "/" + tb, tb, SUB_ICON[tb], page === n.page && cur === tb, () => fin.go(n.page, tb), subCount[tb])));
+      }
+      if (n.page === "Records") return [groupHead(n.label)].concat(REC_SECTIONS.map(r =>
+        subItem("rec/" + r.id, r.label, SUB_ICON[r.id], page === "Records" && st.recSection === r.id, () => { this.setState({recSection:r.id}); this.go("Records"); })));
+      return [areaNav[idx]];
+    });
 
     const workSec = WORK_SECTIONS.find(s => s.id === st.workSection) || WORK_SECTIONS[0];
     const workView = st.workViews[workSec.id] || workSec.views[0];
@@ -1795,6 +1826,7 @@ export default class PulseLogic extends DCLogic {
         placeholder:"Search inside every document…", kind:"FULL TEXT", scroll:"SCROLL FOR THE VIEWER",
         suggestions:["avocado","salmon","receipt","summary"]},
       tables:{eyebrow:"TABLES", title:"Every record type", blurb:recSec.blurb, placeholder:"", kind:"", scroll:"", suggestions:[]},
+      activity:{eyebrow:"ACTIVITY", title:"Activity", blurb:recSec.blurb, placeholder:"", kind:"", scroll:"", suggestions:[]},
       ontology:{eyebrow:"ONTOLOGY", title:"Ontology", blurb:recSec.blurb,
         placeholder:"", kind:"", scroll:"", suggestions:[]}
     }[recSec.id];
@@ -1803,9 +1835,10 @@ export default class PulseLogic extends DCLogic {
       title: HERO.title, blurb: HERO.blurb,
       eyebrow: HERO.eyebrow, askPlaceholder: HERO.placeholder,
       searchKind: HERO.kind, scrollHint: HERO.scroll,
-      hasHero: page === "Records" && recSec.id !== "ontology" && recSec.id !== "tables",
+      hasHero: page === "Records" && recSec.id !== "ontology" && recSec.id !== "tables" && recSec.id !== "activity",
       isContacts: page === "Records" && recSec.id === "contacts",
       isTables: page === "Records" && recSec.id === "tables",
+      isActivityLog: page === "Records" && recSec.id === "activity",
       isFiles: page === "Records" && recSec.id === "files",
       isOntology: page === "Records" && recSec.id === "ontology",
       openNew: () => this.setState({newRecOpen:true, newRecName:"", newRecTemplate:"Field sheet"}),
@@ -2872,9 +2905,7 @@ export default class PulseLogic extends DCLogic {
         {title:"Reset the demo data", meta:"Start the presentation again", hint:"ACTION", glyph:"action",
           go: () => { this.setState({paletteOpen:false, query:""}); fin.reset(); }},
         {title:themeAction, meta:"Appearance", hint:"ACTION", glyph:"action",
-          go: () => this.setState(p => p.theme === "light" ? {theme: p.darkTheme || this.props.theme || "harbour"} : {theme:"light", darkTheme:p.theme})},
-        {title:"Scope and pricing", meta:"Settings · optional commercial information", hint:"ACTION", glyph:"action",
-          go: () => { this.setState({paletteOpen:false, query:""}); fin.go("Settings", "Scope & pricing"); }}
+          go: () => this.setState(p => p.theme === "light" ? {theme: p.darkTheme || this.props.theme || "harbour"} : {theme:"light", darkTheme:p.theme})}
       ]},
       {group:"Work", scope:"Work", items:fs.invoices.filter(i => i.status === "attention").map(i => ({title:i.id + " needs a decision", meta:(i.issueText || "").slice(0, 70), hint:"INVOICE", glyph:"task",
         go: () => { this.setState({paletteOpen:false, query:""}); fin.openInvoice(i.id); }}))},
@@ -3045,7 +3076,8 @@ export default class PulseLogic extends DCLogic {
     if (FIN_TABS[page]){
       const cur = finTab(fs, page);
       const counts = {"Needs review": finOpen, "Checklist": finPack(fs).total - finPack(fs).done};
-      contextNav = FIN_TABS[page].map(tb => seg(tb, cur === tb, () => fin.setTab(page, tb), counts[tb] ? String(counts[tb]) : ""));
+      // Area sub-pages live in the side rail now; only Settings keeps top-bar tabs.
+      contextNav = page !== "Settings" ? [] : FIN_TABS[page].map(tb => seg(tb, cur === tb, () => fin.setTab(page, tb), counts[tb] ? String(counts[tb]) : ""));
       contextHint = (PAGE_LABEL[page] || page).toUpperCase() + " · " + cur.toUpperCase() + " · DEMO DATA";
       searchHint = "Search records, pages and actions";
     } else if (page === "Settings"){
@@ -3062,8 +3094,7 @@ export default class PulseLogic extends DCLogic {
       contextHint = st.actPaused ? "LIVE VIEW PAUSED" : "LIVE · EVENT LOG";
       searchHint = "Search the audit trail";
     } else if (page === "Records"){
-      contextNav = REC_SECTIONS.map(s => seg(s.label, st.recSection === s.id,
-        () => this.setState({recSection:s.id})));
+      contextNav = [];
       contextHint = "RECORDS · " + recSec.label.toUpperCase();
       searchHint = recSec.id === "ontology" ? "Search the ontology" : "Search " + recSec.label.toLowerCase();
     } else if (page === "Work"){
@@ -3076,10 +3107,7 @@ export default class PulseLogic extends DCLogic {
       contextHint = "NOT INCLUDED IN THE INITIAL ROLLOUT";
       searchHint = "Search records, pages and actions";
     } else if (page === "Home" || page === "Dashboard"){
-      contextNav = [
-        seg("Home", page === "Home", () => this.go("Home")),
-        seg("Money & Reports", false, () => fin.go("Money", "Overview"))
-      ];
+      contextNav = [];
       contextHint = "DEMO ANSWERS · " + finOpen + " TO CHECK · DEMO DATA";
       searchHint = page === "Dashboard" ? "Search the dashboard" : "Search every record you can see";
     } else if (page === "Agents"){
@@ -3159,7 +3187,7 @@ export default class PulseLogic extends DCLogic {
 
       /* header zones */
       isAgents: page === "Agents",
-      showPillNav: page !== "Agents",
+      showPillNav: page !== "Agents" && contextNav.length > 0,
 
       /* home widgets */
       widgetHint: st.widgetEdit ? "EDITING BOARD" : String(st.widgets.length) + " WIDGETS",
@@ -3996,7 +4024,7 @@ export default class PulseLogic extends DCLogic {
       showProfileText: roomy,
       // Tabs size to their own labels; NavThumb measures, so equal tracks aren't needed.
       navGroupStyle: "position:relative;display:inline-grid;grid-auto-flow:column;grid-auto-columns:max-content;"
-        + "width:max-content;max-width:100%;align-items:center;padding:0;flex:" + (contextNav.length <= 3 ? "none" : "0 1 auto") + ";min-width:0;border-radius:999px;"
+        + "width:max-content;max-width:100%;align-items:center;padding:0;flex:" + (contextNav.length <= 4 ? "none" : "0 1 auto") + ";min-width:0;border-radius:999px;"
         + "overflow-x:auto;overflow-y:hidden;scrollbar-width:none;overscroll-behavior-x:contain;"
         + "-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 14px),transparent);mask-image:linear-gradient(90deg,#000 calc(100% - 14px),transparent)",
       // Static look only. NavThumb measures the active tab and writes its own

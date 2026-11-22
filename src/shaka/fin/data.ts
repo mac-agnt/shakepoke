@@ -182,10 +182,3 @@ export const OTHER: Record<string, ByLoc> = {
   "2026-04": m(null, null), "2026-05": m(null, null), "2026-06": m(null, null), "2026-07": m(null, null),
   "2026-08": m(9600, 6300), "2026-09": m(9700, 6300), "2026-10": m(9800, 6400),
 };
-
-/* ── Commercial summary (optional screen) ─────────────────────────────────── */
-export const OFFER = { price: 2150000, vatRate: 0.23, months: 60, apr: 0.089, cap: 55000 };
-export const monthlyPayment = (principal: number, apr = OFFER.apr, months = OFFER.months) => {
-  const r = apr / 12;
-  return Math.round((principal * r) / (1 - Math.pow(1 + r, -months)));
-};

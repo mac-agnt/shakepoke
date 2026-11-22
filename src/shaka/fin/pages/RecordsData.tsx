@@ -1,13 +1,14 @@
-/* Records › Tables: the underlying searchable data, plus the activity log.
-   Rows drill into the page that owns the record. */
+/* Records › Tables: the underlying searchable data. Records › Activity: the
+   audit trail of reviews, corrections and exports. Rows drill into the page
+   that owns the record. */
 import { useState } from "react";
 import { useFin, fin, ingredientRows, approvedLines, monthRow, correctedTotal, type LineRow, type IngRow, type Activity } from "../store";
 import { SUPPLIERS, MONTHS, LOCS, supplierName, locName, catName, invoiceTotal, lineTotal, type Invoice } from "../data";
 import { statusBadge } from "./Invoices";
 import { eur, eur2 } from "../../format";
-import { Page, Card, Table, Seg, Badge, inputStyle, Row } from "../../ui";
+import { Page, Card, Table, Seg, Badge, inputStyle, Row, Grid, Stat } from "../../ui";
 
-const KINDS = ["Invoices", "Invoice lines", "Ingredients", "Suppliers", "Monthly figures", "Activity"] as const;
+const KINDS = ["Invoices", "Invoice lines", "Ingredients", "Suppliers", "Monthly figures"] as const;
 type Kind = (typeof KINDS)[number];
 
 export default function RecordsData() {
@@ -18,7 +19,7 @@ export default function RecordsData() {
   const has = (txt: string) => !ql || txt.toLowerCase().includes(ql);
 
   const months = MONTHS.flatMap(m => LOCS.map(l => ({ ...monthRow(s, m.ym, l.id), label: m.label })));
-  const counts: Record<Kind, number> = { "Invoices": s.invoices.length, "Invoice lines": approvedLines(s).length, "Ingredients": ingredientRows(s).length, "Suppliers": SUPPLIERS.length, "Monthly figures": months.length, "Activity": s.activity.length };
+  const counts: Record<Kind, number> = { "Invoices": s.invoices.length, "Invoice lines": approvedLines(s).length, "Ingredients": ingredientRows(s).length, "Suppliers": SUPPLIERS.length, "Monthly figures": months.length };
 
   return (
     <Page title="Tables" sub="Every record behind the pages, searchable. Click a row to open it where it lives." actions={<Badge tone="neutral">Demo data</Badge>}>
@@ -50,9 +51,38 @@ export default function RecordsData() {
           { key: "s", label: "Sales", w: "100px", align: "right", render: r => r.sales === null ? "n/a" : eur(r.sales) }, { key: "sp", label: "Supplier spend", w: "120px", align: "right", render: r => r.spend === null ? "n/a" : eur(r.spend) },
           { key: "lb", label: "Labour", w: "100px", align: "right", render: r => r.labour === null ? "n/a" : eur(r.labour) }, { key: "o", label: "Other", w: "100px", align: "right", render: r => r.other === null ? "n/a" : eur(r.other) },
           { key: "st", label: "Status", w: "150px", render: r => <Badge tone={r.status === "complete" ? "ok" : r.status === "provisional" ? "warn" : "bad"}>{r.status === "incomplete" ? "Data incomplete" : r.status === "provisional" ? "Provisional" : "All inputs in"}</Badge> }]} />}
-        {kind === "Activity" && <Table<Activity> rowKey={a => a.id} rows={s.activity.filter(a => has(a.who + " " + a.text))} dense onRow={a => (a.ref ? fin.openInvoice(a.ref) : undefined)} cols={[
-          { key: "t", label: "When", w: "190px", render: a => a.ts }, { key: "w", label: "Who", w: "150px", render: a => a.who },
-          { key: "x", label: "What happened", w: "minmax(320px,3fr)", render: a => <span style={{ whiteSpace: "normal" }}>{a.text}</span> }]} />}
+      </Card>
+    </Page>
+  );
+}
+
+const WHO = ["Everyone", "You", "System"] as const;
+type Who = (typeof WHO)[number];
+
+export function RecordsActivity() {
+  const s = useFin();
+  const who = (WHO as readonly string[]).includes(s.ui.tabs.RecordsActivity ?? "") ? (s.ui.tabs.RecordsActivity as Who) : "Everyone";
+  const [q, setQ] = useState("");
+  const ql = q.trim().toLowerCase();
+  const mine = s.activity.filter(a => a.kind === "you").length;
+  const rows = s.activity.filter(a => (who === "Everyone" || (who === "You") === (a.kind === "you")) && (!ql || (a.who + " " + a.text + " " + (a.ref ?? "")).toLowerCase().includes(ql)));
+  return (
+    <Page title="Activity" sub="Every review, correction and export, newest first. Click a row to open the document it touched." actions={<Badge tone="neutral">Demo data</Badge>}>
+      <Grid min={190}>
+        <Stat label="Events logged" value={String(s.activity.length)} sub="Since onboarding" />
+        <Stat label="Your actions" value={String(mine)} sub="Reviews, corrections, exports" onClick={() => fin.setTab("RecordsActivity", "You")} />
+        <Stat label="System events" value={String(s.activity.length - mine)} sub="Imports and suggestions" onClick={() => fin.setTab("RecordsActivity", "System")} />
+      </Grid>
+      <Row>
+        <Seg options={WHO} value={who} onChange={k => fin.setTab("RecordsActivity", k)} />
+        <input aria-label="Search activity" value={q} onChange={e => setQ(e.target.value)} placeholder="Search" style={{ ...inputStyle, width: "220px" }} />
+      </Row>
+      <Card pad="14px">
+        <Table<Activity> rowKey={a => a.id} rows={rows} dense pageSize={14} empty="No activity matches." onRow={a => (a.ref ? fin.openInvoice(a.ref) : undefined)} cols={[
+          { key: "t", label: "When", w: "190px", render: a => a.ts },
+          { key: "w", label: "Who", w: "150px", render: a => <Badge tone={a.kind === "you" ? "accent" : "neutral"}>{a.who}</Badge> },
+          { key: "x", label: "What happened", w: "minmax(280px,3fr)", render: a => <span style={{ whiteSpace: "normal" }}>{a.text}</span> },
+          { key: "r", label: "Document", w: "140px", render: a => a.ref ?? "" }]} />
       </Card>
     </Page>
   );
