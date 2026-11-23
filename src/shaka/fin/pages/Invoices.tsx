@@ -6,7 +6,7 @@ import { useFin, fin, counts, spendTotals, correctedTotal, approvedLines } from 
 import { CATEGORIES, LOCS, SUPPLIERS, supplierName, locName, catName, invoiceTotal, lineTotal, type Invoice, type CatId, type LocId } from "../data";
 import { finTab } from "../nav";
 import { eur, eur2 } from "../../format";
-import { Page, Card, Table, Btn, Badge, Notice, Row, Stat, Grid, Columns, Legend, inputStyle, eyebrow, num, type Tone } from "../../ui";
+import { Page, Card, Table, Btn, Badge, Notice, Row, Stat, Grid, Columns, HBars, Legend, inputStyle, eyebrow, num, type Tone } from "../../ui";
 import { Donut, MonthHeat, StackBar, VIZ, kEur } from "../../viz";
 
 const ISSUE: Record<string, string> = { line: "Unclear line", location: "Shop not stated", category: "Pick a category", duplicate: "Possible duplicate" };
@@ -31,7 +31,7 @@ export default function Invoices() {
     <Page period="October 2026 · Illustrative demo data" title="Invoices"
       sub="Supplier bills and staff receipts land in one inbox. Field suggestions are checked by a person before anything reaches your reports."
       actions={<><Badge tone="neutral">Demo data</Badge><Btn kind="primary" onClick={() => fin.openCapture(true)}>Capture invoice</Btn></>}>
-      {tab !== "Suppliers" && <Grid min={190}>
+      {tab === "Staff receipts" ? <ReceiptStats /> : tab !== "Suppliers" && <Grid min={190}>
         <Stat label="Reviewed" value={c.reviewed + " of " + c.total} sub="Counted in your reports" onClick={() => fin.setTab("Invoices", "All invoices")} />
         <Stat label="Need your attention" value={String(c.attention)} tone={c.attention ? "warn" : "ok"} sub={c.attention ? "Not counted until reviewed" : "Inbox clear"} onClick={() => fin.setTab("Invoices", "Needs review")} />
         <Stat label="Approved spend, October" value={eur(spendTotals(s).ALL)} sub="Both shops, reviewed lines only" onClick={() => fin.go("Money", "Overview")} />
@@ -39,7 +39,7 @@ export default function Invoices() {
       </Grid>}
 
       {tab === "Suppliers" ? <Suppliers /> : <>
-      {!sel && <InboxVisuals />}
+      {!sel && (tab === "Staff receipts" ? <ReceiptVisuals /> : <InboxVisuals />)}
       <div className="shk-split" style={{ display: "grid", gridTemplateColumns: sel ? "minmax(0,1fr) minmax(0,1.2fr)" : "minmax(0,1fr)", gap: "14px", alignItems: "start" }}>
         <Card pad="14px" title={tab} sub={tab === "Needs review" ? c.attention ? c.attention + (c.attention === 1 ? " document" : " documents") + " could not be read with confidence. Each needs one decision." : "Every October document is reviewed." : tab === "Staff receipts" ? "Receipt photos from the shop managers' cards." : "Every October document in the inbox."}
           extra={<input aria-label="Search invoices" value={q} onChange={e => setQ(e.target.value)} placeholder="Search supplier, number, item" style={{ ...inputStyle, width: "220px", height: "32px" }} />}>
@@ -295,5 +295,69 @@ function InboxVisuals() {
         <Columns height={140} fmt={eur} series={[{ name: "Baggot Street", color: VIZ[0] }, { name: "Blackrock", color: VIZ[1] }]} data={weeks.map(w => ({ label: w + " Oct", values: [wk(w, "BAG"), wk(w, "BLK")] }))} />
       </Card>
     </Grid>
+  );
+}
+
+/* Staff receipts get their own view: card spend, who bought what, and an October timeline. */
+const rTotal = (i: Invoice) => i.status === "attention" ? correctedTotal(i) : invoiceTotal(i);
+const holder = (i: Invoice) => i.capturedBy ?? "Unknown";
+
+function ReceiptStats() {
+  const s = useFin();
+  const rs = s.invoices.filter(i => i.kind === "receipt");
+  const total = rs.reduce((a, i) => a + rTotal(i), 0);
+  const open = rs.filter(i => i.status === "attention");
+  const big = rs.slice().sort((a, b) => rTotal(b) - rTotal(a))[0];
+  return (
+    <Grid min={190}>
+      <Stat label="Receipts, October" value={String(rs.length)} sub={new Set(rs.map(holder)).size + " card holders"} />
+      <Stat label="Spent on staff cards" value={eur2(total)} sub={rs.length ? "Average " + eur2(Math.round(total / rs.length)) + " a receipt" : ""} />
+      <Stat label="Waiting on a category" value={String(open.length)} tone={open.length ? "warn" : "ok"} sub={open.length ? "Not in your reports yet" : "All filed"} onClick={open.length ? () => fin.select(open[0].id) : undefined} />
+      <Stat label="Largest receipt" value={big ? eur2(rTotal(big)) : "None"} sub={big ? supplierName(big.supplier).replace(" (staff receipt)", "") + ", " + dLabel(big.date).replace(" 2026", "") : ""} onClick={big ? () => fin.select(big.id) : undefined} />
+    </Grid>
+  );
+}
+
+function ReceiptVisuals() {
+  const s = useFin();
+  const rs = s.invoices.filter(i => i.kind === "receipt").slice().sort((a, b) => a.date.localeCompare(b.date));
+  const holders = Array.from(new Set(rs.map(holder)));
+  const byCat: Record<string, number> = {};
+  rs.forEach(i => i.lines.forEach(l => { byCat[l.cat] = (byCat[l.cat] ?? 0) + lineTotal(l); }));
+  const shop = (n: string) => supplierName(n).replace(" (staff receipt)", "");
+  return (
+    <div className="shk-split" style={{ display: "grid", gridTemplateColumns: "minmax(0,1.6fr) minmax(0,1fr)", gap: "14px", alignItems: "start" }}>
+      <Card title="October on the staff cards" sub="Each receipt by date. Click one to open it.">
+        <div style={{ position: "relative", height: "150px", margin: "8px 6px 0" }}>
+          <div style={{ position: "absolute", left: 0, right: 0, top: "96px", height: "2px", background: "var(--line)", borderRadius: "2px" }} />
+          {[1, 8, 15, 22, 29].map(d => (
+            <span key={d} style={{ position: "absolute", top: "106px", left: ((d - 1) / 30 * 100) + "%", transform: "translateX(-50%)", fontSize: "11px", color: "var(--faint)" }}>{d} Oct</span>
+          ))}
+          {rs.map((i, k) => {
+            const d = +i.date.slice(8);
+            const warn = i.status === "attention";
+            const up = k % 2 === 0;
+            return (
+              <button key={i.id} type="button" onClick={() => fin.select(i.id)} className="ixr" aria-label={"Open " + i.id}
+                style={{ position: "absolute", left: ((d - 1) / 30 * 100) + "%", top: up ? "8px" : "34px", transform: "translateX(-50%)", display: "flex", flexDirection: "column", alignItems: "center", gap: "4px", background: "none", border: 0, padding: 0, cursor: "pointer", font: "inherit", color: "var(--ink)" }}>
+                <span style={{ fontSize: "12px", fontWeight: 600, whiteSpace: "nowrap" }}>{shop(i.supplier)}</span>
+                <span style={{ ...num, fontSize: "11.5px", color: warn ? "var(--warn)" : "var(--dim)", whiteSpace: "nowrap" }}>{eur2(rTotal(i))}</span>
+                <span style={{ width: "1px", height: up ? "36px" : "10px", background: "var(--line)" }} />
+                <span style={{ width: "12px", height: "12px", borderRadius: "50%", background: warn ? "var(--warn)" : VIZ[holders.indexOf(holder(i)) % VIZ.length], boxShadow: "0 0 0 3px var(--surface)" }} />
+              </button>
+            );
+          })}
+        </div>
+        <Legend items={[...holders.map((h, k) => ({ name: h, color: VIZ[k % VIZ.length] })), { name: "Waiting on a category", color: "var(--warn)" }]} />
+      </Card>
+      <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+        <Card title="Spend by card holder" sub="Receipt totals, October.">
+          <HBars fmt={eur2} rows={holders.map((h, k) => ({ label: h, value: rs.filter(i => holder(i) === h).reduce((a, i) => a + rTotal(i), 0), color: VIZ[k % VIZ.length], note: (n => n + (n === 1 ? " receipt" : " receipts"))(rs.filter(i => holder(i) === h).length) }))} />
+        </Card>
+        <Card title="What staff bought" sub="By expense category. Unreviewed receipts use the suggested category.">
+          <StackBar fmt={eur2} rows={Object.entries(byCat).map(([k, v], n) => ({ label: catName(k), value: v, color: VIZ[(n + 2) % VIZ.length] }))} />
+        </Card>
+      </div>
+    </div>
   );
 }
